@@ -13,17 +13,30 @@
         Collection of a items to check.
 
     .PARAMETER Tasks.FolderPath
-        One or more paths to a folder where to look for files.
-
-    .PARAMETER Tasks.MailTo
-        List of e-mail addresses where to send the e-mail too.
+        One or more paths to a folder where to search for files matching the 
+        filter.
 
     .PARAMETER Tasks.Filter
-        One or more strings to search for in the file name.
+        The filter used to find matching files. This filter is directly passed 
+        to 'Get-ChildItem -Filter'.
 
-    .PARAMETER Tasks.MailOnlyWhenFound
-        When set to true an e-mail will only be sent when matching file 
-        names are found.
+        Examples:
+        - '*.ps1'  : find all files with extension '.ps1'
+        - '*kiwi*' : find all files with the word 'kiwi' in the file name
+
+    .PARAMETER Recurse
+        When the true the parent and child folders are searched for matching
+        files. When false only the parent folder is searched.
+
+    .PARAMETER Tasks.SendMail.To
+        List of e-mail addresses where to send the e-mail too.
+
+    .PARAMETER Tasks.SendMail.When
+        When to send an e-mail. 
+        
+        Valid options:
+        - Always                : Always send an e-mail, even without matches
+        - OnlyWhenFilesAreFound : Only send an e-mail when matches are found
 #>
 
 [CmdLetBinding()]
@@ -122,6 +135,8 @@ Process {
                 [Parameter(Mandatory)]
                 [String]$Path,
                 [Parameter(Mandatory)]
+                [Boolean]$Recurse,
+                [Parameter(Mandatory)]
                 [String[]]$Filters
             )
 
@@ -135,6 +150,7 @@ Process {
                 foreach ($filter in $Filters) {
                     $params = @{
                         LiteralPath = $Path 
+                        Recurse     = $Recurse
                         Filter      = $filter
                         File        = $true
                         ErrorAction = 'Stop'
