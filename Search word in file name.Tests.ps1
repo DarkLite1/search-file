@@ -63,7 +63,7 @@ Describe 'send an e-mail to the admin when' {
                 It 'is missing' {
                     @{
                         MailTo = @('bob@contoso.com')
-                    } | ConvertTo-Json | Out-File @testOutParams
+                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                     
                     .$testScript @testParams
                     
@@ -85,7 +85,7 @@ Describe 'send an e-mail to the admin when' {
                                 SendMail   = 'Always'
                             }
                         )
-                    } | ConvertTo-Json | Out-File @testOutParams
+                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                     
                     .$testScript @testParams
                     
@@ -97,26 +97,50 @@ Describe 'send an e-mail to the admin when' {
                         $EntryType -eq 'Error'
                     }
                 }
-                It 'Word is missing' {
-                    @{
-                        Tasks = @(
-                            @{
-                                MailTo     = @('bob@contoso.com')
-                                FolderPath = $testFolderPath
-                                # Word              = 'kiwi'
-                                SendMail   = 'Always'
-                            }
-                        )
-                    } | ConvertTo-Json | Out-File @testOutParams
-                    
-                    .$testScript @testParams
-                    
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and 
-                        ($Message -like "*Property 'Word' is mandatory.")
+                Context 'Word' {
+                    It 'is missing' {
+                        @{
+                            Tasks = @(
+                                @{
+                                    MailTo     = @('bob@contoso.com')
+                                    FolderPath = $testFolderPath
+                                    # Word              = 'kiwi'
+                                    SendMail   = 'Always'
+                                }
+                            )
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+                        
+                        .$testScript @testParams
+                        
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                            (&$MailAdminParams) -and 
+                            ($Message -like "*Property 'Word' is mandatory.")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
                     }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
+                    It 'is not unique' {
+                        @{
+                            Tasks = @(
+                                @{
+                                    MailTo     = @('bob@contoso.com')
+                                    FolderPath = $testFolderPath
+                                    Word       = @('a', 'a', 'b')
+                                    SendMail   = 'Always'
+                                }
+                            )
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+                        
+                        .$testScript @testParams
+                        
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                            (&$MailAdminParams) -and 
+                            ($Message -like "*Property 'Word' contains the duplicate value 'a'. Duplicate values are not allowed.")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
                     }
                 }
                 Context 'FolderPath' {
@@ -130,7 +154,7 @@ Describe 'send an e-mail to the admin when' {
                                     SendMail = 'Always'
                                 }
                             )
-                        } | ConvertTo-Json | Out-File @testOutParams
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                         
                         .$testScript @testParams
                         
@@ -152,7 +176,7 @@ Describe 'send an e-mail to the admin when' {
                                     SendMail   = 'Always'
                                 }
                             )
-                        } | ConvertTo-Json | Out-File @testOutParams
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                         
                         .$testScript @testParams
                         
@@ -176,7 +200,7 @@ Describe 'send an e-mail to the admin when' {
                                     # SendMail = 'Always'
                                 }
                             )
-                        } | ConvertTo-Json | Out-File @testOutParams
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                     
                         .$testScript @testParams
         
@@ -197,7 +221,7 @@ Describe 'send an e-mail to the admin when' {
                                     SendMail   = 'a'
                                 }
                             )
-                        } | ConvertTo-Json | Out-File @testOutParams
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                     
                         .$testScript @testParams
         
@@ -213,13 +237,17 @@ Describe 'send an e-mail to the admin when' {
         }
     }
 }
-Describe 'when all tests pass' {
+Describe 'when matching file names are found' {
     BeforeEach {
         Remove-Item "$testFolderPath\*" -Recurse -Force
     }
-    Context 'and SendMail is true' {
-        It 'send a mail when a file is found' {
-            @('a', 'b', 'c') | ForEach-Object {
+    Context 'and SendMail is Always' {
+        It 'send an e-mail' {
+            @(
+                'a kiwi a',
+                'b kiwi b',
+                'c kiwi c'
+            ) | ForEach-Object {
                 New-Item -Path "$testFolderPath\$_" -ItemType File
             }
 
@@ -232,10 +260,13 @@ Describe 'when all tests pass' {
                         SendMail   = 'Always'
                     }
                 )
-            } | ConvertTo-Json | Out-File @testOutParams
+            } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
     
             .$testScript @testParams
 
+            Should -Invoke Send-MailHC -Times 1 -Exactly -ParameterFilter {
+                $Priority -eq 'Normal'
+            }
         }
     }
-}
+} -Tag test

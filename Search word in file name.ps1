@@ -79,6 +79,12 @@ Begin {
             if (-not $task.FolderPath) {
                 throw "Input file '$ImportFile': Property 'FolderPath' is mandatory."
             }
+
+            $task.Word | Group-Object | Where-Object {$_.Count -ge 2} |
+            ForEach-Object {
+                throw "Input file '$ImportFile': Property 'Word' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
+            }
+            
             foreach ($path in $task.FolderPath) {
                 if (-not (Test-Path -LiteralPath $path -PathType Container)) {
                     throw "Input file '$ImportFile': The path '$path' in 'FolderPath' does not exist."
@@ -103,6 +109,44 @@ Begin {
         
 Process {
     Try {
+        Function Get-MatchingFilesHC {
+            Param (
+                [Parameter(Mandatory)]
+                [String]$Path,
+                [Parameter(Mandatory)]
+                [String[]]$Words
+            )
+
+            try {
+                $result = [PSCustomObject]@{
+                    Path    = $Path
+                    Matches = @{}
+                    Error   = $null
+                }
+
+                foreach ($word in $Words) {
+                    $params = @{
+                        Path        = $Path 
+                        Filter      = "*$word*" 
+                        File        = $true
+                        ErrorAction = 'Stop'
+                    }
+                    $result.Matches[$word] = Get-ChildItem @params
+                }
+            }
+            catch {
+                $result.Error = $_
+                $Error.RemoveAt(0)
+            }
+            finally {
+                $result
+            }
+        }
+
+        foreach ($task in $Tasks) {
+            
+        }
+
         $totalCount = 0
         
         $tableRows = foreach ($word in $KeyWords) {
@@ -125,6 +169,7 @@ Process {
             $mailParams = @{
                 To        = $MailTo
                 Bcc       = $ScriptAdmin
+                Priority  = 'Normal'
                 Subject   = '{0} errors found' -f $totalCount
                 Message   = "
                             <p>Errors found in folder '$Path':</p>
