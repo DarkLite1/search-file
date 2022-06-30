@@ -230,6 +230,34 @@ Describe 'send an e-mail to the admin when' {
                             $EntryType -eq 'Error'
                         }
                     }
+                    It 'is duplicate' {
+                        @{
+                            Tasks = @(
+                                @{
+                                    FolderPath = @(
+                                        $testFolderPath, 
+                                        $testFolderPath
+                                    )
+                                    Filter     = '*kiwi*'
+                                    Recurse    = $false
+                                    SendMail   = @{
+                                        To   = @('bob@contoso.com')
+                                        When = 'Always'
+                                    }
+                                }
+                            )
+                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+                        
+                        .$testScript @testParams
+                        
+                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                            (&$MailAdminParams) -and 
+                            ($Message -like "*Property 'FolderPath' contains the duplicate value '$testFolderPath'. Duplicate values are not allowed.")
+                        }
+                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                            $EntryType -eq 'Error'
+                        }
+                    }
                 }
                 Context 'SendMail' {
                     It 'is missing' {

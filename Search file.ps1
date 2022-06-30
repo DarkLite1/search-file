@@ -100,6 +100,12 @@ Begin {
                     throw "Input file '$ImportFile': The path '$path' in 'FolderPath' does not exist."
                 }
             }
+
+            $task.FolderPath | Group-Object | Where-Object { $_.Count -ge 2 } |
+            ForEach-Object {
+                throw "Input file '$ImportFile': Property 'FolderPath' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
+            }
+
             if ($task.PSObject.Properties.Name -notContains 'Recurse') {
                 throw "Input file '$ImportFile': Property 'Recurse' is mandatory."
             }
@@ -168,7 +174,18 @@ Process {
         }
 
         foreach ($task in $Tasks) {
-            
+            Add-Member -InputObject $task -NotePropertyMembers @{
+                Result = @{}
+            }
+
+            foreach ($path in $task.FolderPath) {
+                $params = @{
+                    Path    = $path
+                    Recurse = $task.Recurse
+                    Filters = $task.Filter
+                }
+                $task.Result[$path] = Get-MatchingFilesHC @params
+            }
         }
 
         $totalCount = 0
