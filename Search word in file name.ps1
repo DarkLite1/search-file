@@ -84,13 +84,11 @@ Begin {
                     throw "Input file '$ImportFile': The path '$path' in 'FolderPath' does not exist."
                 }
             }
-            if (
-                $task.PSObject.Properties.Name -notContains 'MailOnlyWhenFound'
-            ) {
-                throw "Input file '$ImportFile': The property 'MailOnlyWhenFound' is mandatory."
+            if (-not $task.SendMail) {
+                throw "Input file '$ImportFile': Property 'SendMail' is mandatory."
             }
-            if (-not ($d.MailOnlyWhenFound -is [boolean])) {
-                throw "Input file '$ImportFile': The value '$($task.MailOnlyWhenFound)' in 'MailOnlyWhenFound' is not a true false value."
+            if ($task.SendMail -notMatch '^Always$|^OnlyWhenWordIsFound$') {
+                throw "Input file '$ImportFile': The value '$($task.SendMail)' in 'SendMail' is not supported. Only the value 'Always' or 'OnlyWhenWordIsFound' can be used."
             }
         }
         #endregion
@@ -117,22 +115,12 @@ Process {
                 $totalCount += $filesFound.Count
         
                 '<tr>
-                            <th>{0}</th>
-                            <td>{1}</td>
-                        </tr>' -f $word, $filesFound.Count   
+                    <th>{0}</th>
+                    <td>{1}</td>
+                </tr>' -f $word, $filesFound.Count   
             }
         }
-    }
-    Catch {
-        Write-Warning $_
-        Send-MailHC -To $ScriptAdmin -Subject 'FAILURE' -Priority 'High' -Message $_ -Header $ScriptName
-        Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
-        Write-EventLog @EventEndParams; Exit 1
-    }
-}
-        
-End {
-    Try {
+
         if ($tableRows) {
             $mailParams = @{
                 To        = $MailTo
@@ -157,7 +145,7 @@ End {
         Write-Warning $_
         Send-MailHC -To $ScriptAdmin -Subject 'FAILURE' -Priority 'High' -Message $_ -Header $ScriptName
         Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
-        Exit 1
+        Write-EventLog @EventEndParams; Exit 1
     }
     Finally {
         Write-EventLog @EventEndParams

@@ -80,9 +80,9 @@ Describe 'send an e-mail to the admin when' {
                         Tasks = @(
                             @{
                                 # MailTo            = @('bob@contoso.com')
-                                FolderPath        = $testFolderPath
-                                Word              = 'kiwi'
-                                MailOnlyWhenFound = $true
+                                FolderPath = $testFolderPath
+                                Word       = 'kiwi'
+                                SendMail   = 'Always'
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
@@ -101,10 +101,10 @@ Describe 'send an e-mail to the admin when' {
                     @{
                         Tasks = @(
                             @{
-                                MailTo            = @('bob@contoso.com')
-                                FolderPath        = $testFolderPath
+                                MailTo     = @('bob@contoso.com')
+                                FolderPath = $testFolderPath
                                 # Word              = 'kiwi'
-                                MailOnlyWhenFound = $true
+                                SendMail   = 'Always'
                             }
                         )
                     } | ConvertTo-Json | Out-File @testOutParams
@@ -124,10 +124,10 @@ Describe 'send an e-mail to the admin when' {
                         @{
                             Tasks = @(
                                 @{
-                                    MailTo            = @('bob@contoso.com')
+                                    MailTo   = @('bob@contoso.com')
                                     # FolderPath        = $testFolderPath
-                                    Word              = 'kiwi'
-                                    MailOnlyWhenFound = $true
+                                    Word     = 'kiwi'
+                                    SendMail = 'Always'
                                 }
                             )
                         } | ConvertTo-Json | Out-File @testOutParams
@@ -146,10 +146,10 @@ Describe 'send an e-mail to the admin when' {
                         @{
                             Tasks = @(
                                 @{
-                                    MailTo            = @('bob@contoso.com')
-                                    FolderPath        = 'x:\notExisting'
-                                    Word              = 'kiwi'
-                                    MailOnlyWhenFound = $true
+                                    MailTo     = @('bob@contoso.com')
+                                    FolderPath = 'x:\notExisting'
+                                    Word       = 'kiwi'
+                                    SendMail   = 'Always'
                                 }
                             )
                         } | ConvertTo-Json | Out-File @testOutParams
@@ -165,15 +165,15 @@ Describe 'send an e-mail to the admin when' {
                         }
                     }
                 }
-                Context 'MailOnlyWhenFound' {
+                Context 'SendMail' {
                     It 'is missing' {
                         @{
                             Tasks = @(
                                 @{
-                                    MailTo            = @('bob@contoso.com')
-                                    FolderPath        = $testFolderPath
-                                    Word              = 'kiwi'
-                                    # MailOnlyWhenFound = $true
+                                    MailTo     = @('bob@contoso.com')
+                                    FolderPath = $testFolderPath
+                                    Word       = 'kiwi'
+                                    # SendMail = 'Always'
                                 }
                             )
                         } | ConvertTo-Json | Out-File @testOutParams
@@ -181,20 +181,20 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
         
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*The property 'MailOnlyWhenFound' is mandatory.")
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*Property 'SendMail' is mandatory.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
                         }
                     }
-                    It 'MailOnlyWhenFound is not a boolean' {
+                    It 'is not the value Always or OnlyWhenWordIsFound' {
                         @{
                             Tasks = @(
                                 @{
-                                    MailTo            = @('bob@contoso.com')
-                                    FolderPath        = $testFolderPath
-                                    Word              = 'kiwi'
-                                    MailOnlyWhenFound = 'a'
+                                    MailTo     = @('bob@contoso.com')
+                                    FolderPath = $testFolderPath
+                                    Word       = 'kiwi'
+                                    SendMail   = 'a'
                                 }
                             )
                         } | ConvertTo-Json | Out-File @testOutParams
@@ -202,7 +202,7 @@ Describe 'send an e-mail to the admin when' {
                         .$testScript @testParams
         
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'MailOnlyWhenFound' is not a true false value*")
+                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'SendMail' is not supported. Only the value 'Always' or 'OnlyWhenWordIsFound' can be used.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                             $EntryType -eq 'Error'
@@ -210,6 +210,32 @@ Describe 'send an e-mail to the admin when' {
                     }
                 }
             }
+        }
+    }
+}
+Describe 'when all tests pass' {
+    BeforeEach {
+        Remove-Item "$testFolderPath\*" -Recurse -Force
+    }
+    Context 'and SendMail is true' {
+        It 'send a mail when a file is found' {
+            @('a', 'b', 'c') | ForEach-Object {
+                New-Item -Path "$testFolderPath\$_" -ItemType File
+            }
+
+            @{
+                Tasks = @(
+                    @{
+                        MailTo     = @('bob@contoso.com')
+                        FolderPath = $testFolderPath
+                        Word       = 'kiwi'
+                        SendMail   = 'Always'
+                    }
+                )
+            } | ConvertTo-Json | Out-File @testOutParams
+    
+            .$testScript @testParams
+
         }
     }
 }
