@@ -50,6 +50,45 @@ Param (
 )
         
 Begin {
+    $getMatchingFilesHC = {
+        [OutputType([PSCustomObject])]
+        Param (
+            [Parameter(Mandatory)]
+            [String]$Path,
+            [Parameter(Mandatory)]
+            [Boolean]$Recurse,
+            [Parameter(Mandatory)]
+            [String[]]$Filters
+        )
+
+        try {
+            $result = [PSCustomObject]@{
+                ComputerName = $env:COMPUTERNAME
+                Path         = $Path
+                Matches      = @{}
+                Error        = $null
+            }
+
+            foreach ($filter in $Filters) {
+                $params = @{
+                    LiteralPath = $Path 
+                    Recurse     = $Recurse
+                    Filter      = $filter
+                    File        = $true
+                    ErrorAction = 'Stop'
+                }
+                $result.Matches[$filter] = Get-ChildItem @params
+            }
+        }
+        catch {
+            $result.Error = $_
+            $Error.RemoveAt(0)
+        }
+        finally {
+            $result
+        }
+    }
+
     Try {
         Import-EventLogParamsHC -Source $ScriptName
         Write-EventLog @EventStartParams
@@ -124,6 +163,15 @@ Begin {
                 throw "Input file '$ImportFile': The value '$($task.SendMail.When)' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used."
             }
         }
+
+        if ($file.PSObject.Properties.Name -notContains 'MaxConcurrentJobs') {
+            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
+        }
+        if (-not ($file.MaxConcurrentJobs -is [int])) {
+            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+        }
+
+        $maxConcurrentJobs = [int]$file.MaxConcurrentJobs
         #endregion
     }
     Catch {
@@ -136,48 +184,13 @@ Begin {
         
 Process {
     Try {
-        Function Get-MatchingFilesHC {
-            Param (
-                [Parameter(Mandatory)]
-                [String]$Path,
-                [Parameter(Mandatory)]
-                [Boolean]$Recurse,
-                [Parameter(Mandatory)]
-                [String[]]$Filters
-            )
-
-            try {
-                $result = [PSCustomObject]@{
-                    Path    = $Path
-                    Matches = @{}
-                    Error   = $null
-                }
-
-                foreach ($filter in $Filters) {
-                    $params = @{
-                        LiteralPath = $Path 
-                        Recurse     = $Recurse
-                        Filter      = $filter
-                        File        = $true
-                        ErrorAction = 'Stop'
-                    }
-                    $result.Matches[$filter] = Get-ChildItem @params
-                }
-            }
-            catch {
-                $result.Error = $_
-                $Error.RemoveAt(0)
-            }
-            finally {
-                $result
-            }
-        }
-
         foreach ($task in $Tasks) {
             Add-Member -InputObject $task -NotePropertyMembers @{
-                Result = @{}
+                Job    = $null
+                Result = $null
             }
 
+            #region Get matching files
             foreach ($path in $task.FolderPath) {
                 $params = @{
                     Path    = $path
@@ -185,6 +198,22 @@ Process {
                     Filters = $task.Filter
                 }
                 $task.Result[$path] = Get-MatchingFilesHC @params
+
+                #region Wait for max running jobs
+                $waitParams = @{
+                    Name       = $Tasks | Where-Object { $_.Job }
+                    MaxThreads = $maxConcurrentJobs
+                }
+                Wait-MaxRunningJobsHC @waitParams
+                #endregion
+            }
+            #endregion
+
+            if (
+                ($task.SendTo.When -eq 'Always') -or
+                (1 -eq 1)
+            ) {
+                
             }
         }
 

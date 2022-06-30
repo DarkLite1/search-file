@@ -59,10 +59,66 @@ Describe 'send an e-mail to the admin when' {
             }
         }
         Context 'property' {
+            Context 'MaxConcurrentJobs' {
+                It 'is missing' {
+                    @{
+                        # MaxConcurrentJobs = 6
+                        Tasks = @(
+                            @{
+                                ComputerName = $null
+                                FolderPath   = @($testFolderPath)
+                                Filter       = '*kiwi*'
+                                Recurse      = $false
+                                SendMail     = @{
+                                    To   = @('bob@contoso.com')
+                                    When = 'Always'
+                                }
+                            }
+                        )
+                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+
+                    .$testScript @testParams
+                            
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and 
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' not found*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
+                It 'is not a number' {
+                    @{
+                        MaxConcurrentJobs = 'a'
+                        Tasks             = @(
+                            @{
+                                ComputerName = $null
+                                FolderPath   = @($testFolderPath)
+                                Filter       = '*kiwi*'
+                                Recurse      = $false
+                                SendMail     = @{
+                                    To   = @('bob@contoso.com')
+                                    When = 'Always'
+                                }
+                            }
+                        )
+                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+                    
+                    .$testScript @testParams
+            
+                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
+                    }
+                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                        $EntryType -eq 'Error'
+                    }
+                }
+            }
             Context 'Tasks' {
                 It 'is missing' {
                     @{
-                        MailTo = @('bob@contoso.com')
+                        MaxConcurrentJobs = 6
                     } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
                     
                     .$testScript @testParams
@@ -78,12 +134,14 @@ Describe 'send an e-mail to the admin when' {
                 Context 'Filter' {
                     It 'is missing' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = $testFolderPath
+                                    ComputerName = $null
+                                    FolderPath   = $testFolderPath
                                     # Filter     = '*kiwi*'
-                                    Recurse    = $false
-                                    SendMail   = @{
+                                    Recurse      = $false
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -103,12 +161,14 @@ Describe 'send an e-mail to the admin when' {
                     }
                     It 'is not unique' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = $testFolderPath
-                                    Filter     = @('*a*', '*a*', '*b*')
-                                    Recurse    = $false
-                                    SendMail   = @{
+                                    ComputerName = $null
+                                    FolderPath   = $testFolderPath
+                                    Filter       = @('*a*', '*a*', '*b*')
+                                    Recurse      = $false
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -130,12 +190,14 @@ Describe 'send an e-mail to the admin when' {
                 Context 'Recurse' {
                     It 'is missing' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = $testFolderPath
-                                    Filter     = '*kiwi*'
+                                    ComputerName = $null
+                                    FolderPath   = $testFolderPath
+                                    Filter       = '*kiwi*'
                                     # Recurse    = $false
-                                    SendMail   = @{
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -155,12 +217,14 @@ Describe 'send an e-mail to the admin when' {
                     }
                     It 'is not a true false value' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = $testFolderPath
-                                    Filter     = @('*a*')
-                                    Recurse    = 'a'
-                                    SendMail   = @{
+                                    ComputerName = $null
+                                    FolderPath   = $testFolderPath
+                                    Filter       = @('*a*')
+                                    Recurse      = 'a'
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -182,12 +246,14 @@ Describe 'send an e-mail to the admin when' {
                 Context 'FolderPath' {
                     It 'is missing' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
+                                    ComputerName = $null
                                     # FolderPath = $testFolderPath
-                                    Filter   = '*kiwi*'
-                                    Recurse  = $false
-                                    SendMail = @{
+                                    Filter       = '*kiwi*'
+                                    Recurse      = $false
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -207,12 +273,14 @@ Describe 'send an e-mail to the admin when' {
                     }
                     It 'does not exist' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = 'x:\notExisting'
-                                    Filter     = '*kiwi*'
-                                    Recurse    = $false
-                                    SendMail   = @{
+                                    ComputerName = $null
+                                    FolderPath   = 'x:\notExisting'
+                                    Filter       = '*kiwi*'
+                                    Recurse      = $false
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -232,15 +300,16 @@ Describe 'send an e-mail to the admin when' {
                     }
                     It 'is duplicate' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = @(
-                                        $testFolderPath, 
-                                        $testFolderPath
+                                    ComputerName = $null
+                                    FolderPath   = @(
+                                        $testFolderPath, $testFolderPath
                                     )
-                                    Filter     = '*kiwi*'
-                                    Recurse    = $false
-                                    SendMail   = @{
+                                    Filter       = '*kiwi*'
+                                    Recurse      = $false
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'Always'
                                     }
@@ -262,11 +331,13 @@ Describe 'send an e-mail to the admin when' {
                 Context 'SendMail' {
                     It 'is missing' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = $testFolderPath
-                                    Filter     = '*kiwi*'
-                                    Recurse    = $false
+                                    ComputerName = $null
+                                    FolderPath   = $testFolderPath
+                                    Filter       = '*kiwi*'
+                                    Recurse      = $false
                                     # SendMail   = @{
                                     #     To   = @('bob@contoso.com')
                                     #     When = 'Always'
@@ -286,12 +357,14 @@ Describe 'send an e-mail to the admin when' {
                     }
                     It 'When is not the value Always or OnlyWhenFilesAreFound' {
                         @{
-                            Tasks = @(
+                            MaxConcurrentJobs = 6
+                            Tasks             = @(
                                 @{
-                                    FolderPath = $testFolderPath
-                                    Filter     = '*kiwi*'
-                                    Recurse    = $false
-                                    SendMail   = @{
+                                    ComputerName = $null
+                                    FolderPath   = $testFolderPath
+                                    Filter       = '*kiwi*'
+                                    Recurse      = $false
+                                    SendMail     = @{
                                         To   = @('bob@contoso.com')
                                         When = 'a'
                                     }
@@ -328,12 +401,14 @@ Describe 'when matching file names are found' {
             }
 
             @{
-                Tasks = @(
+                MaxConcurrentJobs = 6
+                Tasks             = @(
                     @{
-                        FolderPath = $testFolderPath
-                        Filter     = '*kiwi*'
-                        Recurse    = $false
-                        SendMail   = @{
+                        ComputerName = $null
+                        FolderPath   = $testFolderPath
+                        Filter       = '*kiwi*'
+                        Recurse      = $false
+                        SendMail     = @{
                             To   = @('bob@contoso.com')
                             When = 'Always'
                         }
