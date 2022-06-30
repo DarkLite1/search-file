@@ -173,6 +173,15 @@ Begin {
 
         $maxConcurrentJobs = [int]$file.MaxConcurrentJobs
         #endregion
+
+        #region Add properties
+        foreach ($task in $Tasks) {
+            Add-Member -InputObject $task -NotePropertyMembers @{
+                Job    = $null
+                Result = $null
+            }
+        }
+        #endregion
     }
     Catch {
         Write-Warning $_
@@ -185,19 +194,30 @@ Begin {
 Process {
     Try {
         foreach ($task in $Tasks) {
-            Add-Member -InputObject $task -NotePropertyMembers @{
-                Job    = $null
-                Result = $null
-            }
-
-            #region Get matching files
             foreach ($path in $task.FolderPath) {
-                $params = @{
-                    Path    = $path
-                    Recurse = $task.Recurse
-                    Filters = $task.Filter
+                #region Get matching files
+                $invokeParams = @{
+                    ScriptBlock  = $getMatchingFilesHC
+                    ArgumentList = $path, $task.Recurse, $task.Filter
                 }
-                $task.Result[$path] = Get-MatchingFilesHC @params
+        
+                $M = "Search files on '{0}' in folder '{1}' with recurse '{2}' and filter '{3}'" -f $(
+                    if ($task.ComputerName) { $task.ComputerName }
+                    else { $env:COMPUTERNAME }
+                ),
+                $invokeParams.ArgumentList[0], $invokeParams.ArgumentList[1],
+                $invokeParams.ArgumentList[2]
+                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+        
+                $task.Job = if ($task.ComputerName) {
+                    $invokeParams.ComputerName = $task.ComputerName
+                    $invokeParams.AsJob = $true
+                    Invoke-Command @invokeParams
+                }
+                else {
+                    Start-Job @invokeParams
+                }
+                #endregion
 
                 #region Wait for max running jobs
                 $waitParams = @{
@@ -207,7 +227,6 @@ Process {
                 Wait-MaxRunningJobsHC @waitParams
                 #endregion
             }
-            #endregion
 
             if (
                 ($task.SendTo.When -eq 'Always') -or
