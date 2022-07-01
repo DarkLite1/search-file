@@ -271,33 +271,6 @@ Describe 'send an e-mail to the admin when' {
                             $EntryType -eq 'Error'
                         }
                     }
-                    It 'does not exist' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = 'x:\notExisting'
-                                    Filter       = '*kiwi*'
-                                    Recurse      = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
-                        .$testScript @testParams
-                        
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
-                            ($Message -like "*The path 'x:\notExisting' in 'FolderPath' does not exist.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
                     It 'is duplicate' {
                         @{
                             MaxConcurrentJobs = 6

@@ -50,6 +50,76 @@ Param (
 )
         
 Begin {
+    Function Get-JobDurationHC {
+        [OutputType([TimeSpan])]
+        Param (
+            [Parameter(Mandatory)]
+            [System.Management.Automation.Job]$Job
+        )
+
+        $params = @{
+            Start = $Job.PSBeginTime
+            End   = $Job.PSEndTime
+        }
+        $jobDuration = New-TimeSpan @params
+
+        $M = "'{0}' job duration '{1:hh}:{1:mm}:{1:ss}:{1:fff}'" -f 
+        $Job.Location, $jobDuration
+        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+
+        $jobDuration
+    }
+    Function Get-JobResultsAndErrorsHC {
+        [OutputType([PSCustomObject])]
+        Param (
+            [Parameter(Mandatory)]
+            [System.Management.Automation.Job]$Job
+        )
+
+        $result = [PSCustomObject]@{
+            Result = $null
+            Errors = @()
+        }
+
+        #region Get job results
+        $M = "'{0}' job get results" -f $Job.Location
+        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+              
+        $jobErrors = @()
+        $receiveParams = @{
+            ErrorVariable = 'jobErrors'
+            ErrorAction   = 'SilentlyContinue'
+        }
+        $result.Result = $Job | Receive-Job @receiveParams
+        #endregion
+   
+        #region Get job errors
+        foreach ($e in $jobErrors) {
+            $M = "'{0}' job error '{1}'" -f $Job.Location, $e.ToString()
+            Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
+                  
+            $result.Errors += $M
+            $error.Remove($e)
+        }
+        if ($result.Result.Error) {
+            $M = "'{0}' error '{1}'" -f $Job.Location, $result.Result.Error
+            Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
+   
+            $result.Errors += $M
+        }
+        #endregion
+
+        $result.Result = $result.Result | 
+        Select-Object -Property * -ExcludeProperty 'Error'
+
+        if (-not $result.Errors) {
+            $M = "'{0}' job successful" -f $Job.Location
+            Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+        }
+
+        $result
+    }
+
     $getMatchingFilesHC = {
         [OutputType([PSCustomObject])]
         Param (
@@ -67,6 +137,10 @@ Begin {
                 Path         = $Path
                 Matches      = @{}
                 Error        = $null
+            }
+
+            if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+                throw "Path '$path' not found."
             }
 
             foreach ($filter in $Filters) {
@@ -87,6 +161,36 @@ Begin {
         finally {
             $result
         }
+    }
+    $getJobResult = {
+        #region Verbose
+        $M = "Get job results on ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f $(
+            if ($task.ComputerName) { $task.ComputerName }
+            else { $env:COMPUTERNAME }
+        ), 
+        $completedJob.Path, $task.Filter, $task.Recurse
+        Write-Verbose $M
+        Write-EventLog @EventVerboseParams -Message $M
+        #endregion
+
+        #region Get job results
+        $params = @{
+            Job = $completedJob.Job.Object
+        }
+        $jobOutput = Get-JobResultsAndErrorsHC @params
+
+        $completedJob.Job.Duration = Get-JobDurationHC @params 
+        #endregion
+
+        #region Add job results
+        $completedJob.Job.Result = $jobOutput.Result
+
+        $jobOutput.Errors | ForEach-Object { 
+            $completedJob.Job.Errors += $_ 
+        }
+        #endregion
+            
+        $completedJob.Job.Object = $null
     }
 
     Try {
@@ -133,12 +237,6 @@ Begin {
             ForEach-Object {
                 throw "Input file '$ImportFile': Property 'Filter' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
             }
-            
-            foreach ($path in $task.FolderPath) {
-                if (-not (Test-Path -LiteralPath $path -PathType Container)) {
-                    throw "Input file '$ImportFile': The path '$path' in 'FolderPath' does not exist."
-                }
-            }
 
             $task.FolderPath | Group-Object | Where-Object { $_.Count -ge 2 } |
             ForEach-Object {
@@ -176,9 +274,18 @@ Begin {
 
         #region Add properties
         foreach ($task in $Tasks) {
-            Add-Member -InputObject $task -NotePropertyMembers @{
-                Job    = $null
-                Result = $null
+            $task | Add-Member -NotePropertyMembers @{
+                Jobs = foreach ($path in $task.FolderPath) {
+                    [PSCustomObject]@{
+                        Path = $path
+                        Job  = @{
+                            Object   = $null
+                            Duration = $null
+                            Result   = $null
+                            Errors   = @()
+                        }
+                    }
+                }
             }
         }
         #endregion
@@ -193,15 +300,16 @@ Begin {
         
 Process {
     Try {
+        #region Start jobs
         foreach ($task in $Tasks) {
-            foreach ($path in $task.FolderPath) {
+            foreach ($j in $task.Jobs) {
                 #region Get matching files
                 $invokeParams = @{
                     ScriptBlock  = $getMatchingFilesHC
-                    ArgumentList = $path, $task.Recurse, $task.Filter
+                    ArgumentList = $j.Path, $task.Recurse, $task.Filter
                 }
         
-                $M = "Search files on '{0}' in folder '{1}' with recurse '{2}' and filter '{3}'" -f $(
+                $M = "Start job on ComputerName '{0}' Path '{1}' Filter '{3}' Recurse '{2}'" -f $(
                     if ($task.ComputerName) { $task.ComputerName }
                     else { $env:COMPUTERNAME }
                 ),
@@ -209,7 +317,7 @@ Process {
                 $invokeParams.ArgumentList[2]
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         
-                $task.Job = if ($task.ComputerName) {
+                $j.Job.Object = if ($task.ComputerName) {
                     $invokeParams.ComputerName = $task.ComputerName
                     $invokeParams.AsJob = $true
                     Invoke-Command @invokeParams
@@ -221,20 +329,82 @@ Process {
 
                 #region Wait for max running jobs
                 $waitParams = @{
-                    Name       = $Tasks | Where-Object { $_.Job }
+                    Name       = $Tasks.Jobs.Job.Object | Where-Object { $_ }
                     MaxThreads = $maxConcurrentJobs
                 }
                 Wait-MaxRunningJobsHC @waitParams
                 #endregion
-            }
 
-            if (
-                ($task.SendTo.When -eq 'Always') -or
-                (1 -eq 1)
-            ) {
-                
+                #region Get job results
+                foreach ($task in $Tasks) {
+                    foreach (
+                        $completedJob in 
+                        $task.Jobs.Job | Where-Object {
+                            ($_.Object.State -match 'Completed|Failed')
+                        }
+                    ) {
+                        & $getJobResult
+                    }
+                }
+                #endregion
             }
         }
+        #endregion
+
+        #region Wait for jobs to finish and get results
+        while (
+            $runningJobs = $Tasks.Jobs.Job.Object | Where-Object { $_ }
+        ) {
+            #region Verbose progress
+            $runningJobCounter = ($runningJobs | Measure-Object).Count
+            if ($runningJobCounter -eq 1) {
+                $M = 'Wait for the last running job to finish'
+            }
+            else {
+                $M = "Wait for one of '{0}' running jobs to finish" -f $runningJobCounter
+            }
+            Write-Verbose $M
+            #endregion
+
+            $finishedJob = $runningJobs | Wait-Job -Any
+
+            foreach ($task in $Tasks) {
+                $completedJob = $task.Jobs | Where-Object {
+                    ($_.Job.Object.Id -eq $finishedJob.Id)
+                }
+                & $getJobResult
+                break
+            }
+        }
+        #endregion
+
+        foreach ($task in $Tasks) {
+
+            #region Export job results to Excel file
+            if ($jobResults = $task.Jobs.Job.Result | Where-Object { $_ }) {
+                $M = "Export $($jobResults.Count) rows to Excel"
+                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+            
+                $excelParams = @{
+                    Path               = $logFile + ' - Log.xlsx'
+                    WorksheetName      = 'Overview'
+                    TableName          = 'Overview'
+                    NoNumberConversion = '*'
+                    AutoSize           = $true
+                    FreezeTopRow       = $true
+                }
+                $jobResults | 
+                Select-Object -Property * -ExcludeProperty 'PSComputerName',
+                'RunSpaceId', 'PSShowComputerName', 'Output' | 
+                Export-Excel @excelParams
+
+                $mailParams.Attachments = $excelParams.Path
+            }
+            #endregion
+        }
+
+
+
 
         $totalCount = 0
         
