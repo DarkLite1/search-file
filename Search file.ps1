@@ -63,8 +63,15 @@ Begin {
         }
         $jobDuration = New-TimeSpan @params
 
+        #region Get computer name
+        $computerName = $Job.Location
+        if ($Job.Location -eq 'localhost') {
+            $computerName = $env:COMPUTERNAME
+        }
+        #endregion
+
         $M = "'{0}' job duration '{1:hh}:{1:mm}:{1:ss}:{1:fff}'" -f 
-        $Job.Location, $jobDuration
+        $computerName, $jobDuration
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
         $jobDuration
@@ -81,8 +88,15 @@ Begin {
             Errors = @()
         }
 
+        #region Get computer name
+        $computerName = $Job.Location
+        if ($Job.Location -eq 'localhost') {
+            $computerName = $env:COMPUTERNAME
+        }
+        #endregion
+
         #region Get job results
-        $M = "'{0}' job get results" -f $Job.Location
+        $M = "'{0}' job get results" -f $computerName
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
               
         $jobErrors = @()
@@ -95,14 +109,14 @@ Begin {
    
         #region Get job errors
         foreach ($e in $jobErrors) {
-            $M = "'{0}' job error '{1}'" -f $Job.Location, $e.ToString()
+            $M = "'{0}' job error '{1}'" -f $computerName, $e.ToString()
             Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
                   
             $result.Errors += $M
             $error.Remove($e)
         }
         if ($result.Result.Error) {
-            $M = "'{0}' error '{1}'" -f $Job.Location, $result.Result.Error
+            $M = "'{0}' error '{1}'" -f $computerName, $result.Result.Error
             Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
    
             $result.Errors += $M
@@ -113,7 +127,7 @@ Begin {
         Select-Object -Property * -ExcludeProperty 'Error'
 
         if (-not $result.Errors) {
-            $M = "'{0}' job successful" -f $Job.Location
+            $M = "'{0}' job successful" -f $computerName
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         }
 
@@ -164,7 +178,7 @@ Begin {
     }
     $getJobResult = {
         #region Verbose
-        $M = "Get job results on ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, 
+        $M = "'{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, 
         $completedJob.Path, $task.Filter, $task.Recurse
         Write-Verbose $M
         Write-EventLog @EventVerboseParams -Message $M
