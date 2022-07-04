@@ -164,10 +164,7 @@ Begin {
     }
     $getJobResult = {
         #region Verbose
-        $M = "Get job results on ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f $(
-            if ($task.ComputerName) { $task.ComputerName }
-            else { $env:COMPUTERNAME }
-        ), 
+        $M = "Get job results on ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, 
         $completedJob.Path, $task.Filter, $task.Recurse
         Write-Verbose $M
         Write-EventLog @EventVerboseParams -Message $M
@@ -274,15 +271,26 @@ Begin {
 
         #region Add properties
         foreach ($task in $Tasks) {
+            if (
+                (-not $task.ComputerName) -or 
+                ($task.ComputerName -eq 'localhost') -or
+                ($task.ComputerName -eq "$env:COMPUTERNAME.$env:USERDNSDOMAIN")
+            ) {
+                $task.ComputerName = $env:COMPUTERNAME
+            }
+
             $task | Add-Member -NotePropertyMembers @{
-                Jobs = foreach ($path in $task.FolderPath) {
-                    [PSCustomObject]@{
-                        Path = $path
-                        Job  = @{
-                            Object   = $null
-                            Duration = $null
-                            Result   = $null
-                            Errors   = @()
+                Jobs = foreach ($computerName in $task.ComputerName) {
+                    foreach ($path in $task.FolderPath) {
+                        [PSCustomObject]@{
+                            ComputerName = $computerName
+                            Path         = $path
+                            Job          = @{
+                                Object   = $null
+                                Duration = $null
+                                Result   = $null
+                                Errors   = @()
+                            }
                         }
                     }
                 }
@@ -309,16 +317,14 @@ Process {
                     ArgumentList = $j.Path, $task.Recurse, $task.Filter
                 }
         
-                $M = "Start job on ComputerName '{0}' Path '{1}' Filter '{3}' Recurse '{2}'" -f $(
-                    if ($task.ComputerName) { $task.ComputerName }
-                    else { $env:COMPUTERNAME }
-                ),
-                $invokeParams.ArgumentList[0], $invokeParams.ArgumentList[1],
+                $M = "Start job on ComputerName '{0}' Path '{1}' Filter '{3}' Recurse '{2}'" -f $j.ComputerName,
+                $invokeParams.ArgumentList[0], 
+                $invokeParams.ArgumentList[1],
                 $invokeParams.ArgumentList[2]
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         
-                $j.Job.Object = if ($task.ComputerName) {
-                    $invokeParams.ComputerName = $task.ComputerName
+                $j.Job.Object = if ($j.ComputerName -ne $env:COMPUTERNAME) {
+                    $invokeParams.ComputerName = $j.ComputerName
                     $invokeParams.AsJob = $true
                     Invoke-Command @invokeParams
                 }
