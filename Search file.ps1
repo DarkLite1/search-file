@@ -377,8 +377,28 @@ Process {
             }
         }
         #endregion
-
+    }
+    Catch {
+        Write-Warning $_
+        Send-MailHC -To $ScriptAdmin -Subject 'FAILURE' -Priority 'High' -Message $_ -Header $ScriptName
+        Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
+        Write-EventLog @EventEndParams; Exit 1
+    }
+}
+End {
+    try {
         foreach ($task in $Tasks) {
+            $exportToExcel = foreach ($job in $task.Jobs) {
+                $job.Result | Select-Object -Property @{
+                    Name       = 'Path';
+                    Expression = { $job.Path }
+                },
+                @{
+                    Name       = 'Path';
+                    Expression = { $_.Path }
+                }
+            }
+             
 
             #region Export job results to Excel file
             if ($jobResults = $task.Jobs.Job.Result | Where-Object { $_ }) {
@@ -402,9 +422,6 @@ Process {
             }
             #endregion
         }
-
-
-
 
         $totalCount = 0
         
@@ -448,10 +465,10 @@ Process {
     Catch {
         Write-Warning $_
         Send-MailHC -To $ScriptAdmin -Subject 'FAILURE' -Priority 'High' -Message $_ -Header $ScriptName
-        Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
-        Write-EventLog @EventEndParams; Exit 1
+        Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"; Exit 1
     }
     Finally {
+        Get-Job | Remove-Job -Force
         Write-EventLog @EventEndParams
     }
 }
