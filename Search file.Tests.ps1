@@ -365,12 +365,12 @@ Describe 'when matching file names are found' {
     }
     Context 'and SendMail is Always' {
         It 'send an e-mail' {
-            @(
+            $testFile = @(
                 'a kiwi a',
                 'b kiwi b',
                 'c kiwi c'
             ) | ForEach-Object {
-                New-Item -Path "$testFolderPath\$_" -ItemType File
+                (New-Item -Path "$testFolderPath\$_" -ItemType File).FullName
             }
 
             @{
