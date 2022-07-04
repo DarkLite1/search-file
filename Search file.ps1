@@ -178,7 +178,7 @@ Begin {
     }
     $getJobResult = {
         #region Verbose
-        $M = "'{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, 
+        $M = "'{0}' Get job result for Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, 
         $completedJob.Path, $task.Filter, $task.Recurse
         Write-Verbose $M
         Write-EventLog @EventVerboseParams -Message $M
@@ -331,7 +331,7 @@ Process {
                     ArgumentList = $j.Path, $task.Recurse, $task.Filter
                 }
         
-                $M = "'{0}' Path '{1}' Filter '{3}' Recurse '{2}'" -f 
+                $M = "'{0}' Start job for Path '{1}' Filter '{3}' Recurse '{2}'" -f 
                 $j.ComputerName,
                 $invokeParams.ArgumentList[0], 
                 $invokeParams.ArgumentList[1],
@@ -349,7 +349,7 @@ Process {
                 #endregion
 
                 $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
-                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+                Write-Verbose $M
 
                 #region Wait for max running jobs
                 $waitParams = @{
