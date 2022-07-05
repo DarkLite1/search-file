@@ -112,21 +112,21 @@ Begin {
             $M = "'{0}' job error '{1}'" -f $computerName, $e.ToString()
             Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
                   
-            $result.Errors += $M
+            $result.Errors += $e.ToString()
             $error.Remove($e)
         }
         if ($result.Result.Error) {
             $M = "'{0}' error '{1}'" -f $computerName, $result.Result.Error
             Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
-   
-            $result.Errors += $M
+
+            $result.Errors += $result.Result.Error
         }
         #endregion
 
         $result.Result = $result.Result | 
         Select-Object -Property * -ExcludeProperty 'Error'
 
-        if (-not $result.Errors) {
+        if ((-not $result.Errors) -and (-not $result.Result.Error)) {
             $M = "'{0}' job successful" -f $computerName
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         }
@@ -145,19 +145,18 @@ Begin {
             [String[]]$Filters
         )
 
-        try {
-            $result = [PSCustomObject]@{
-                ComputerName = $env:COMPUTERNAME
-                Path         = $Path
-                Matches      = @{}
-                Error        = $null
-            }
-
-            if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
-                throw "Path '$path' not found."
-            }
-
-            foreach ($filter in $Filters) {
+        if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+            throw "Path '$Path' not found."
+        }
+        
+        foreach ($filter in $Filters) {
+            try {
+                $result = [PSCustomObject]@{
+                    Filter = $filter
+                    Files  = @()
+                    Error  = $null
+                }
+                
                 $params = @{
                     LiteralPath = $Path 
                     Recurse     = $Recurse
@@ -165,15 +164,15 @@ Begin {
                     File        = $true
                     ErrorAction = 'Stop'
                 }
-                $result.Matches[$filter] = Get-ChildItem @params
+                $result.Files += Get-ChildItem @params
             }
-        }
-        catch {
-            $result.Error = $_
-            $Error.RemoveAt(0)
-        }
-        finally {
-            $result
+            catch {
+                $result.Error = "Failed retrieving files with filter '$filter': $_"
+                $Error.RemoveAt(0)
+            }
+            finally {
+                $result
+            }
         }
     }
     $getJobResult = {
@@ -318,8 +317,7 @@ Begin {
         Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
         Write-EventLog @EventEndParams; Exit 1
     }
-}
-        
+}       
 Process {
     Try {
         #region Start jobs
@@ -346,10 +344,10 @@ Process {
                 else {
                     Start-Job @invokeParams
                 }
-                #endregion
-
+                
                 $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
                 Write-Verbose $M
+                #endregion
 
                 #region Wait for max running jobs
                 $waitParams = @{
@@ -411,36 +409,121 @@ Process {
 }
 End {
     try {
-        foreach ($task in $Tasks) {
-            $exportToExcel = foreach ($job in $task.Jobs) {
-                $job.Result | Select-Object -Property @{
-                    Name       = 'Path';
-                    Expression = { $job.Path }
+        for ($i = 0; $i -lt $Tasks.Count; $i++) {
+            $exportToExcel = @{}
+
+            $exportToExcel.JobResults = foreach ($j in $Tasks[$i].Jobs) {
+                foreach ($r in $j.Result) {
+                    $r.Files | Select-Object -Property @{
+                        Name       = 'ComputerName';
+                        Expression = { $j.ComputerName }
+                    },
+                    @{
+                        Name       = 'Path';
+                        Expression = { $j.Path }
+                    },
+                    @{
+                        Name       = 'Filter';
+                        Expression = { $r.Filter }
+                    },
+                    @{
+                        Name       = 'File';
+                        Expression = { $_.FullName }
+                    },
+                    @{
+                        Name       = 'CreationTime';
+                        Expression = { $_.CreationTime }
+                    },
+                    @{
+                        Name       = 'LastWriteTime';
+                        Expression = { $_.LastWriteTime }
+                    },
+                    @{
+                        Name       = 'Size'; 
+                        Expression = { [MATH]::Round($_.Length / 1GB, 2) } 
+                    },
+                    @{
+                        Name       = 'Size_'; 
+                        Expression = { $_.Length } 
+                    },
+                    @{
+                        Name       = 'Duration';
+                        Expression = { $j.Duration }
+                    }
+                }
+            }
+
+            $exportToExcel.JobErrors = foreach ($j in $Tasks[$i].Jobs) {
+                $j.Job | Where-Object { $_.Errors } | Select-Object -Property @{
+                    Name       = 'ComputerName';
+                    Expression = { $j.ComputerName }
                 },
                 @{
                     Name       = 'Path';
-                    Expression = { $_.Path }
+                    Expression = { $j.Path }
+                },
+                @{
+                    Name       = 'Filters';
+                    Expression = { $Tasks[$i].Filter -join ' | ' }
+                },
+                @{
+                    Name       = 'Duration';
+                    Expression = { $_.Duration }
+                },
+                @{
+                    Name       = 'Error';
+                    Expression = { $_.Errors -join ', ' }
                 }
             }
-             
+        
+            #region Export to Excel file
+            $excelParams = @{
+                Path          = "$logFile - $i - Log.xlsx"
+                AutoSize      = $true
+                FreezeTopRow  = $true
+            }
 
-            #region Export job results to Excel file
-            if ($jobResults = $task.Jobs.Job.Result | Where-Object { $_ }) {
-                $M = "Export $($jobResults.Count) rows to Excel"
+            if ($exportToExcel.JobResults) {
+                $excelParams.WorksheetName = 'Files'
+                $excelParams.TableName = 'Files'
+
+                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f $(
+                ($exportToExcel.JobResults | Measure-Object).Count
+                ), $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
-            
-                $excelParams = @{
-                    Path               = $logFile + ' - Log.xlsx'
-                    WorksheetName      = 'Overview'
-                    TableName          = 'Overview'
-                    NoNumberConversion = '*'
-                    AutoSize           = $true
-                    FreezeTopRow       = $true
+
+                $exportToExcel.JobResults | 
+                Export-Excel @excelParams -AutoNameRange -CellStyleSB {
+                    Param (
+                        $WorkSheet,
+                        $TotalRows,
+                        $LastColumn
+                    )
+    
+                    @($WorkSheet.Names['Size'].Style).ForEach( {
+                            $_.NumberFormat.Format = '?\ \G\B'
+                            $_.HorizontalAlignment = 'Center'
+                        })
+    
+                    @($WorkSheet.Names['Size_'].Style).ForEach( {
+                            $_.NumberFormat.Format = '?\ \B'
+                            $_.HorizontalAlignment = 'Center'
+                        })
                 }
-                $jobResults | 
-                Select-Object -Property * -ExcludeProperty 'PSComputerName',
-                'RunSpaceId', 'PSShowComputerName', 'Output' | 
-                Export-Excel @excelParams
+
+                $mailParams.Attachments = $excelParams.Path
+            }
+
+            if ($exportToExcel.JobErrors) {
+                $excelParams.WorksheetName = 'Errors'
+                $excelParams.TableName = 'Errors'
+
+                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f $(
+                ($exportToExcel.JobErrors | Measure-Object).Count
+                ), $excelParams.WorksheetName, $excelParams.Path
+                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+
+                $exportToExcel.JobErrors | Export-Excel @excelParams
 
                 $mailParams.Attachments = $excelParams.Path
             }
