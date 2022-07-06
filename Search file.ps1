@@ -127,7 +127,8 @@ Begin {
         Select-Object -Property * -ExcludeProperty 'Error'
 
         if ((-not $result.Errors) -and (-not $result.Result.Error)) {
-            $M = "'{0}' job successful" -f $computerName
+            $M = "'{0}' job successful found '{1}' files" -f $computerName,
+            $result.Result.Files.Count
             Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         }
 
@@ -410,10 +411,20 @@ Process {
 End {
     try {
         for ($i = 0; $i -lt $Tasks.Count; $i++) {
+            $mailParams = @{
+                To        = $Tasks[$i].SendMail.To
+                Bcc       = $ScriptAdmin
+                Priority  = 'Normal'
+                LogFolder = $logParams.LogFolder
+                Header    = $ScriptName
+                Save      = $logFile + ' - Mail.html'
+            }
+
             $exportToExcel = @{}
 
+            #region Collect files and errors
             $exportToExcel.JobResults = foreach ($j in $Tasks[$i].Jobs) {
-                foreach ($r in $j.Result) {
+                foreach ($r in $j.Job.Result) {
                     $r.Files | Select-Object -Property @{
                         Name       = 'ComputerName';
                         Expression = { $j.ComputerName }
@@ -448,7 +459,7 @@ End {
                     },
                     @{
                         Name       = 'Duration';
-                        Expression = { $j.Duration }
+                        Expression = { $j.Job.Duration }
                     }
                 }
             }
@@ -463,7 +474,7 @@ End {
                     Expression = { $j.Path }
                 },
                 @{
-                    Name       = 'Filters';
+                    Name       = 'Filters'; 
                     Expression = { $Tasks[$i].Filter -join ' | ' }
                 },
                 @{
@@ -475,12 +486,13 @@ End {
                     Expression = { $_.Errors -join ', ' }
                 }
             }
+            #endregion
         
             #region Export to Excel file
             $excelParams = @{
-                Path          = "$logFile - $i - Log.xlsx"
-                AutoSize      = $true
-                FreezeTopRow  = $true
+                Path         = "$logFile - $i - Log.xlsx"
+                AutoSize     = $true
+                FreezeTopRow = $true
             }
 
             if ($exportToExcel.JobResults) {
@@ -528,45 +540,80 @@ End {
                 $mailParams.Attachments = $excelParams.Path
             }
             #endregion
-        }
 
-        $totalCount = 0
-        
-        $tableRows = foreach ($filter in $FileFilters) {
-            $params = @{
-                Path   = $Path 
-                Filter = $filter
-                File   = $true
-            }
-            if ($filesFound = Get-ChildItem @params) {
-                $totalCount += $filesFound.Count
-        
-                '<tr>
-                    <th>{0}</th>
-                    <td>{1}</td>
-                </tr>' -f $filter, $filesFound.Count   
-            }
-        }
+            #region Send mail
+            if (
+                ($Tasks[$i].SendMail.When -eq 'Always') -or
+                ($exportToExcel.JobResults) -or
+                ($exportToExcel.JobErrors)
+            ) {
+                $errorMessage = $null
 
-        if ($tableRows) {
-            $mailParams = @{
-                To        = $MailTo
-                Bcc       = $ScriptAdmin
-                Priority  = 'Normal'
-                Subject   = '{0} errors found' -f $totalCount
-                Message   = "
-                            <p>Errors found in folder '$Path':</p>
-                            <table>
-                                $tableRows
-                            </table>
-                        "
-                LogFolder = $logParams.LogFolder
-                Header    = $ScriptName
-                Save      = $logFile + ' - Mail.html'
-                Quote     = $null
+                #region Subject and Priority
+                $mailParams.Subject = '{0} file{1} found' -f 
+                $exportToExcel.JobResults.Count,
+                $(if ($exportToExcel.JobResults.Count -ne 1) { 's' })
+                
+                if ($exportToExcel.JobErrors) {
+                    $mailParams.Priority = 'High'
+
+                    $mailParams.Subject += ', {0} error{1}' -f 
+                    $exportToExcel.JobErrors.Count,
+                    $(if ($exportToExcel.JobErrors.Count -ne 1) { 's' })
+
+                    $errorMessage = "<p>Detected '{0}' error{1} during execution.</p>" -f 
+                    $exportToExcel.JobErrors.Count,
+                    $(if ($exportToExcel.JobErrors.Count -ne 1) { 's' })
+                }
+                #endregion
+
+
+                $tableRows = foreach (
+                    $computerName in 
+                    $Tasks[$i].ComputerName
+                ) {
+                    foreach ($path in $Tasks[$i].FolderPath) {
+                        "<tr>
+                            <th>{0}</th>
+                            <th>{1}</th>
+                       </tr>
+                       <tr>
+                            <th>Filter</th>
+                            <th>Files found</th>
+                        </tr>" -f $computerName, $path
+
+                        foreach ($filter in $Tasks[$i].Filter) {
+                            "<tr>
+                                <td>{0}</td>
+                                <td>{1}</td>
+                            </tr>" -f $filter, $(
+                                $exportToExcel.JobResults | Where-Object {
+                                    ($_.ComputerName -eq $computerName) -and
+                                    ($_.Path -eq $path) -and
+                                    ($_.Filter -eq $filter) 
+                                } | Measure-Object | 
+                                Select-Object -ExpandProperty Count
+                            )
+                        }
+                    }
+                }
+
+                $mailParams.Message = "
+                $errorMessage
+                <p>Found a total of '{0}' files:</p>
+                <table>
+                    $tableRows
+                </table>
+                {1}" -f $exportToExcel.JobResults.Count, $(
+                    if ($mailParams.Attachments) {
+                        '<p><i>* Check the attachment for details</i></p>'
+                    }
+                )
+                
+                Get-ScriptRuntimeHC -Stop
+                Send-MailHC @mailParams
             }
-            Get-ScriptRuntimeHC -Stop
-            Send-MailHC @mailParams
+            #endregion
         }
     }
     Catch {

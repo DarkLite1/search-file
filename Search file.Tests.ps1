@@ -360,39 +360,118 @@ Describe 'send an e-mail to the admin when' {
     }
 }
 Describe 'when matching file names are found' {
-    BeforeEach {
+    BeforeAll {
         Remove-Item "$testFolderPath\*" -Recurse -Force
-    }
-    Context 'and SendMail is Always' {
-        It 'send an e-mail' {
-            $testFile = @(
-                'a kiwi a',
-                'b kiwi b',
-                'c kiwi c'
-            ) | ForEach-Object {
-                (New-Item -Path "$testFolderPath\$_" -ItemType File).FullName
-            }
 
-            @{
-                MaxConcurrentJobs = 6
-                Tasks             = @(
-                    @{
-                        ComputerName = $null
-                        FolderPath   = $testFolderPath
-                        Filter       = '*kiwi*'
-                        Recurse      = $false
-                        SendMail     = @{
-                            To   = @('bob@contoso.com')
-                            When = 'Always'
-                        }
+        $testFile = @(
+            'a kiwi a',
+            'b kiwi b',
+            'c kiwi c'
+        ) | ForEach-Object {
+            (New-Item -Path "$testFolderPath\$_" -ItemType File).FullName
+        }
+
+        @{
+            MaxConcurrentJobs = 6
+            Tasks             = @(
+                @{
+                    ComputerName = $null
+                    FolderPath   = $testFolderPath
+                    Filter       = '*kiwi*'
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
                     }
-                )
-            } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-    
-            .$testScript @testParams
+                }
+            )
+        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
 
-            Should -Invoke Send-MailHC -Times 1 -Exactly -ParameterFilter {
-                $Priority -eq 'Normal'
+        .$testScript @testParams
+    }
+    Context 'export an Excel file' {
+        BeforeAll {
+            $testExportedExcelRows = @(
+                @{
+                    ComputerName  = $env:COMPUTERNAME
+                    Path          = $testFolderPath
+                    Filter        = '*kiwi*'
+                    File          = $testFile[0]
+                    CreationTime  = (Get-Item $testFile[0]).CreationTime
+                    LastWriteTime = (Get-Item $testFile[0]).LastWriteTime
+                    Size          = [MATH]::Round((Get-Item $testFile[0]).Length / 1GB, 2) 
+                    Size_         = (Get-Item $testFile[0]).Length
+                    Duration      = "'00:00:*"
+                }
+            )
+
+            $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 0 - Log.xlsx'
+
+            $actual = Import-Excel -Path $testExcelLogFile.FullName -WorksheetName 'Files'
+        }
+        It 'to the log folder' {
+            $testExcelLogFile | Should -Not -BeNullOrEmpty
+        }
+        It 'with the correct total rows' {
+            $actual | Should -HaveCount $testExportedExcelRows.Count
+        }
+        It 'with the correct data in the rows' {
+            foreach ($testRow in $testExportedExcelRows) {
+                $actualRow = $actual | Where-Object {
+                    $_.File -eq $testRow.File
+                }
+                $actualRow.File | Should -Be $testRow.File
+                $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                $actualRow.Path | Should -Be $testRow.Path
+                $actualRow.Filter | Should -Be $testRow.Filter
+                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
+                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
+                $actualRow.Size | Should -Be $testRow.Size
+                $actualRow.Size_ | Should -Be $testRow.Size_
+                $actualRow.Error | Should -Be $testRow.Error
+                $actualRow.Duration | Should -BeLike $testRow.Duration
+            }
+        }
+    }
+    Context 'send a mail to the user when SendMail.When is Always' {
+        BeforeAll {
+            $testMail = @{
+                To          = 'bob@contoso.com'
+                Bcc         = $ScriptAdmin
+                Priority    = 'Normal'
+                Subject     = '3 files found'
+                Message     = "*Found a total of 3 files*<p><i>* Check the attachment for details</i></p>*"
+                Attachments = '* - 0 - Log.xlsx'
+            }
+        }
+        It 'To Bcc Priority Subject' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($To -eq $testMail.To) -and
+                    ($Bcc -eq $testMail.Bcc) -and
+                    ($Priority -eq $testMail.Priority) -and
+                    ($Subject -eq $testMail.Subject)
+            }
+        }
+        It 'Attachments' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($Attachments -like $testMail.Attachments)
+            }
+        }
+        It 'Message' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                $Message -like $testMail.Message
+            }
+        }
+        It 'Everything' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($To -eq $testMail.To) -and
+                    ($Bcc -eq $testMail.Bcc) -and
+                    ($Priority -eq $testMail.Priority) -and
+                    ($Subject -eq $testMail.Subject) -and
+                    ($Attachments -like $testMail.Attachments) -and
+                    ($Message -like $testMail.Message)
             }
         }
     }
