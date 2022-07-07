@@ -472,7 +472,7 @@ Describe 'when matching files are found' {
                 Bcc         = $ScriptAdmin
                 Priority    = 'Normal'
                 Subject     = '3 files found'
-                Message     = "*Found a total of 3 files*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**kiwi*3*Check the attachment for details*"
+                Message     = "*Found a total of <b>3 files</b>*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**kiwi*3*Check the attachment for details*"
                 Attachments = '* - 0 - Log.xlsx'
             }
         }
@@ -536,7 +536,7 @@ Describe 'when no matching files are found' {
                 Bcc      = $ScriptAdmin
                 Priority = 'Normal'
                 Subject  = '0 files found'
-                Message  = "*Found a total of 0 files*$env:COMPUTERNAME*$testFolderPath*Filter*Files found*.pst*0*"
+                Message  = "*Found a total of <b>0 files</b>*$env:COMPUTERNAME*$testFolderPath*Filter*Files found*.pst*0*"
             }
         }
         It 'Send-MailHC has the correct arguments' {
@@ -670,4 +670,4 @@ Describe 'when an error happens while searching for files' {
             }
         }
     }
-} -tag test
+}
