@@ -647,7 +647,7 @@ Describe 'when an error happens while searching for files' {
                 Bcc         = $ScriptAdmin
                 Priority    = 'High'
                 Subject     = '0 files found, 1 error'
-                Message     = "*Detected <b>1 error</b> during execution.*Found a total of 0 files*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**.pst*0*Check the attachment for details*"
+                Message     = "*Detected <b>1 error</b> during execution.*Found a total of <b>0 files</b>*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**.pst*0*Check the attachment for details*"
                 Attachments = '* - 0 - Log.xlsx'
             }
         }

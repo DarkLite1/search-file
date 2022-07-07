@@ -615,7 +615,7 @@ End {
 
                 $mailParams.Message = "
                 $errorMessage
-                <p>Found a total of {0}` files:</p>
+                <p>Found a total of <b>{0} files</b>:</p>
                 <table>
                     $tableRows
                 </table>
