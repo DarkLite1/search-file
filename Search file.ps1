@@ -421,7 +421,7 @@ End {
                 Priority  = 'Normal'
                 LogFolder = $logParams.LogFolder
                 Header    = $ScriptName
-                Save      = $logFile + ' - Mail.html'
+                Save      = "$logFile - $i - Mail.html"
             }
 
             $exportToExcel = @{}
@@ -436,6 +436,10 @@ End {
                     @{
                         Name       = 'Path';
                         Expression = { $j.Path }
+                    },
+                    @{
+                        Name       = 'Recurse';
+                        Expression = { $Tasks[$i].Recurse }
                     },
                     @{
                         Name       = 'Filter';
@@ -606,7 +610,7 @@ End {
 
                 $mailParams.Message = "
                 $errorMessage
-                <p>Found a total of {0} files:</p>
+                <p>Found a total of {0}` files:</p>
                 <table>
                     $tableRows
                 </table>

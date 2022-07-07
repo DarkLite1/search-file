@@ -396,6 +396,7 @@ Describe 'when matching file names are found' {
                     ComputerName  = $env:COMPUTERNAME
                     Path          = $testFolderPath
                     Filter        = '*kiwi*'
+                    Recurse       = $false
                     File          = $testFile[0].FullName
                     CreationTime  = $testFile[0].CreationTime
                     LastWriteTime = $testFile[0].LastWriteTime
@@ -407,6 +408,7 @@ Describe 'when matching file names are found' {
                     ComputerName  = $env:COMPUTERNAME
                     Path          = $testFolderPath
                     Filter        = '*kiwi*'
+                    Recurse       = $false
                     File          = $testFile[1].FullName
                     CreationTime  = $testFile[1].CreationTime
                     LastWriteTime = $testFile[1].LastWriteTime
@@ -418,6 +420,7 @@ Describe 'when matching file names are found' {
                     ComputerName  = $env:COMPUTERNAME
                     Path          = $testFolderPath
                     Filter        = '*kiwi*'
+                    Recurse       = $false
                     File          = $testFile[2].FullName
                     CreationTime  = $testFile[2].CreationTime
                     LastWriteTime = $testFile[2].LastWriteTime
@@ -446,6 +449,7 @@ Describe 'when matching file names are found' {
                 $actualRow.ComputerName | Should -Be $testRow.ComputerName
                 $actualRow.Path | Should -Be $testRow.Path
                 $actualRow.Filter | Should -Be $testRow.Filter
+                $actualRow.Recurse | Should -Be $testRow.Recurse
                 $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
                 Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
                 $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
@@ -464,7 +468,7 @@ Describe 'when matching file names are found' {
                 Bcc         = $ScriptAdmin
                 Priority    = 'Normal'
                 Subject     = '3 files found'
-                Message     = "*Found a total of 3 files*<p><i>* Check the attachment for details</i></p>*"
+                Message     = "*Found a total of 3 files*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**kiwi*3*Check the attachment for details*"
                 Attachments = '* - 0 - Log.xlsx'
             }
         }
