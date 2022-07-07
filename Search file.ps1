@@ -514,9 +514,9 @@ End {
                 $excelParams.WorksheetName = 'Files'
                 $excelParams.TableName = 'Files'
 
-                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f $(
-                ($exportToExcel.JobResults | Measure-Object).Count
-                ), $excelParams.WorksheetName, $excelParams.Path
+                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f 
+                $exportToExcel.JobResults.Count, 
+                $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
                 $exportToExcel.JobResults | 
@@ -545,9 +545,9 @@ End {
                 $excelParams.WorksheetName = 'Errors'
                 $excelParams.TableName = 'Errors'
 
-                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f $(
-                ($exportToExcel.JobErrors | Measure-Object).Count
-                ), $excelParams.WorksheetName, $excelParams.Path
+                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
+                $exportToExcel.JobErrors.Count, 
+                $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
                 $exportToExcel.JobErrors | Export-Excel @excelParams
@@ -576,7 +576,7 @@ End {
                     $exportToExcel.JobErrors.Count,
                     $(if ($exportToExcel.JobErrors.Count -ne 1) { 's' })
 
-                    $errorMessage = "<p>Detected '{0}' error{1} during execution.</p>" -f 
+                    $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f 
                     $exportToExcel.JobErrors.Count,
                     $(if ($exportToExcel.JobErrors.Count -ne 1) { 's' })
                 }
