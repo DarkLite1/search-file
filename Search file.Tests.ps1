@@ -468,32 +468,21 @@ Describe 'when matching file names are found' {
                 Attachments = '* - 0 - Log.xlsx'
             }
         }
-        It 'To Bcc Priority Subject' {
-            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
-                    ($To -eq $testMail.To) -and
-                    ($Bcc -eq $testMail.Bcc) -and
-                    ($Priority -eq $testMail.Priority) -and
-                    ($Subject -eq $testMail.Subject)
-            }
+        It 'Send-MailHC has the correct arguments' {
+            $mailParams.To | Should -Be $testMail.To
+            $mailParams.Bcc | Should -Be $testMail.Bcc
+            $mailParams.Subject | Should -Be $testMail.Subject
+            $mailParams.Message | Should -BeLike $testMail.Message
+            $mailParams.Attachments | Should -BeLike $testMail.Attachments
         }
-        It 'Attachments' {
+        It 'Send-MailHC is called' {
             Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
-                    ($Attachments -like $testMail.Attachments)
-            }
-        }
-        It 'Message' {
-            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
-                $Message -like $testMail.Message
-            }
-        }
-        It 'Everything' {
-            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
-                    ($To -eq $testMail.To) -and
-                    ($Bcc -eq $testMail.Bcc) -and
-                    ($Priority -eq $testMail.Priority) -and
-                    ($Subject -eq $testMail.Subject) -and
-                    ($Attachments -like $testMail.Attachments) -and
-                    ($Message -like $testMail.Message)
+                ($To -eq $testMail.To) -and
+                ($Bcc -eq $testMail.Bcc) -and
+                ($Priority -eq $testMail.Priority) -and
+                ($Subject -eq $testMail.Subject) -and
+                ($Attachments -like $testMail.Attachments) -and
+                ($Message -like $testMail.Message)
             }
         }
     }
