@@ -607,8 +607,8 @@ End {
                             <th>{1}</th>
                        </tr>
                        <tr>
-                            <th>Filter</th>
-                            <th>Files found</th>
+                            <td>Filter</td>
+                            <td>Files found</td>
                         </tr>" -f $computerName, $path
 
                         foreach ($filter in $Tasks[$i].Filter) {
