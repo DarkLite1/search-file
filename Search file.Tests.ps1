@@ -359,14 +359,14 @@ Describe 'send an e-mail to the admin when' {
         }
     }
 }
-Describe 'when matching file names are found' {
+Describe 'when matching files are found' {
     BeforeAll {
         Remove-Item "$testFolderPath\*" -Recurse -Force
 
         $testFile = @(
-            'a kiwi a',
-            'b kiwi b',
-            'c kiwi c'
+            'a kiwi a.txt',
+            'b kiwi b.txt',
+            'c kiwi c.txt'
         ) | ForEach-Object {
             New-Item -Path "$testFolderPath\$_" -ItemType File
         }
@@ -489,5 +489,89 @@ Describe 'when matching file names are found' {
                 ($Message -like $testMail.Message)
             }
         }
+    }
+}
+Describe 'when no matching files are found' {
+    BeforeAll {
+        Remove-Item "$testFolderPath\*" -Recurse -Force
+
+        $testFile = @(
+            'a.txt',
+            'b.txt',
+            'c.txt'
+        ) | ForEach-Object {
+            New-Item -Path "$testFolderPath\$_" -ItemType File
+        }
+
+        @{
+            MaxConcurrentJobs = 6
+            Tasks             = @(
+                @{
+                    ComputerName = $null
+                    FolderPath   = $testFolderPath
+                    Filter       = '*.pst'
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
+                    }
+                }
+            )
+        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+
+        .$testScript @testParams
+    }
+    It 'create no Excel file' {
+        $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '*.xlsx'
+        $testExcelLogFile | Should -BeNullOrEmpty
+    }
+    Context 'send a mail to the user when SendMail.When is Always' {
+        BeforeAll {
+            $testMail = @{
+                To       = 'bob@contoso.com'
+                Bcc      = $ScriptAdmin
+                Priority = 'Normal'
+                Subject  = '0 files found'
+                Message  = "*Found a total of 0 files*$env:COMPUTERNAME*$testFolderPath*Filter*Files found*.pst*0*"
+            }
+        }
+        It 'Send-MailHC has the correct arguments' {
+            $mailParams.To | Should -Be $testMail.To
+            $mailParams.Bcc | Should -Be $testMail.Bcc
+            $mailParams.Subject | Should -Be $testMail.Subject
+            $mailParams.Message | Should -BeLike $testMail.Message
+            $mailParams.Attachments | Should -BeNullOrEmpty
+        }
+        It 'Send-MailHC is called' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                ($To -eq $testMail.To) -and
+                ($Bcc -eq $testMail.Bcc) -and
+                ($Priority -eq $testMail.Priority) -and
+                ($Subject -eq $testMail.Subject) -and
+                (-not $Attachments) -and
+                ($Message -like $testMail.Message)
+            }
+        }
+    }
+    It 'send no mail when SendMai.When is OnlyWhenFilesAreFound' {
+        @{
+            MaxConcurrentJobs = 6
+            Tasks             = @(
+                @{
+                    ComputerName = $null
+                    FolderPath   = $testFolderPath
+                    Filter       = '*.pst'
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'OnlyWhenFilesAreFound'
+                    }
+                }
+            )
+        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+
+        .$testScript @testParams
+
+        Should -Not -Invoke Send-MailHC
     }
 } -Tag test
