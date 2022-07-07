@@ -115,11 +115,13 @@ Begin {
             $result.Errors += $e.ToString()
             $error.Remove($e)
         }
-        if ($result.Result.Error) {
-            $M = "'{0}' error '{1}'" -f $computerName, $result.Result.Error
-            Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
-
-            $result.Errors += $result.Result.Error
+        if ($resultErrors = $result.Result.Error | Where-Object {$_}) {
+            foreach ($e in $resultErrors) {
+                $M = "'{0}' error '{1}'" -f $computerName, $e
+                Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
+                
+                $result.Errors += $e
+            }
         }
         #endregion
 
@@ -182,10 +184,9 @@ Begin {
     }
     $getJobResult = {
         #region Verbose
-        $M = "'{0}' Get job result for Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, 
-        $completedJob.Path, $task.Filter, $task.Recurse
-        Write-Verbose $M
-        Write-EventLog @EventVerboseParams -Message $M
+        $M = "'{0}' Get job result for Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, $completedJob.Path, 
+        $($task.Filter -join ', '), $task.Recurse
+        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         #endregion
 
         #region Get job results
@@ -341,7 +342,7 @@ Process {
                 $j.ComputerName,
                 $invokeParams.ArgumentList[0], 
                 $invokeParams.ArgumentList[1],
-                $invokeParams.ArgumentList[2]
+                $($invokeParams.ArgumentList[2] -join ', ')
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         
                 $j.Job.Object = if ($j.ComputerName -ne $env:COMPUTERNAME) {
@@ -402,8 +403,10 @@ Process {
                 $completedJob = $task.Jobs | Where-Object {
                     ($_.Job.Object.Id -eq $finishedJob.Id)
                 }
-                & $getJobResult
-                break
+                if ($completedJob) {
+                    & $getJobResult
+                    break
+                }
             }
         }
         #endregion
@@ -418,6 +421,17 @@ Process {
 End {
     try {
         for ($i = 0; $i -lt $Tasks.Count; $i++) {
+            #region Verbose
+            $M = "Task ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}' MailTo '{4}' MailWhen '{5}'" -f 
+            $($Tasks[$i].ComputerName -join ', '), 
+            $($Tasks[$i].FolderPath -join ', '), 
+            $($Tasks[$i].Filter -join ', '), 
+            $Tasks[$i].Recurse,
+            $($Tasks[$i].SendMail.To -join ', '), 
+            $Tasks[$i].SendMail.When
+            Write-Verbose $M
+            #endregion
+        
             $mailParams = @{
                 To        = $Tasks[$i].SendMail.To
                 Bcc       = $ScriptAdmin
@@ -625,6 +639,8 @@ End {
                     }
                 )
                 
+                Write-Verbose 'Send mail'
+
                 Get-ScriptRuntimeHC -Stop
                 Send-MailHC @mailParams
             }
