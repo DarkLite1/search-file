@@ -212,6 +212,9 @@ Begin {
         Import-EventLogParamsHC -Source $ScriptName
         Write-EventLog @EventStartParams
         Get-ScriptRuntimeHC -Start
+    
+        $error.Clear()
+        Get-Job | Remove-Job -Force -EA Ignore
         
         #region Logging
         try {
@@ -427,7 +430,7 @@ End {
             $exportToExcel = @{}
 
             #region Collect files and errors
-            $exportToExcel.JobResults = foreach ($j in $Tasks[$i].Jobs) {
+            [Array]$exportToExcel.JobResults = foreach ($j in $Tasks[$i].Jobs) {
                 foreach ($r in $j.Job.Result) {
                     $r.Files | Select-Object -Property @{
                         Name       = 'ComputerName';
@@ -474,7 +477,7 @@ End {
                 }
             }
 
-            $exportToExcel.JobErrors = foreach ($j in $Tasks[$i].Jobs) {
+            [Array]$exportToExcel.JobErrors = foreach ($j in $Tasks[$i].Jobs) {
                 $j.Job | Where-Object { $_.Errors } | Select-Object -Property @{
                     Name       = 'ComputerName';
                     Expression = { $j.ComputerName }
@@ -489,7 +492,9 @@ End {
                 },
                 @{
                     Name       = 'Duration';
-                    Expression = { $_.Duration }
+                    Expression = { 
+                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration 
+                    }
                 },
                 @{
                     Name       = 'Error';

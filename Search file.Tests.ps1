@@ -2,6 +2,10 @@
 #Requires -Version 5.1
 
 BeforeAll {
+    $realCmdLet = @{
+        StartJob = Get-Command Start-Job
+    }
+
     $testFolderPath = (New-Item "TestDrive:/folder" -ItemType Directory).FullName
 
     $testOutParams = @{
@@ -574,4 +578,96 @@ Describe 'when no matching files are found' {
 
         Should -Not -Invoke Send-MailHC
     }
-} -Tag test
+}
+Describe 'when an error happens while searching for files' {
+    BeforeAll {
+        Mock Start-Job {
+            & $realCmdLet.StartJob -Scriptblock { 
+                throw 'oops'
+            }
+        }
+
+        @{
+            MaxConcurrentJobs = 6
+            Tasks             = @(
+                @{
+                    ComputerName = $null
+                    FolderPath   = $testFolderPath
+                    Filter       = '*.pst'
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
+                    }
+                }
+            )
+        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+
+        .$testScript @testParams
+    }
+    Context "export an Excel file with worksheet 'Errors'" {
+        BeforeAll {
+            $testExportedExcelRows = @(
+                @{
+                    ComputerName = $env:COMPUTERNAME
+                    Path         = $testFolderPath
+                    Filters      = '*.pst'
+                    Duration     = '00:00:*'
+                    Error        = 'oops'
+                }
+            )
+
+            $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 0 - Log.xlsx'
+
+            $actual = Import-Excel -Path $testExcelLogFile.FullName -WorksheetName 'Errors'
+        }
+        It 'to the log folder' {
+            $testExcelLogFile | Should -Not -BeNullOrEmpty
+        }
+        It 'with the correct total rows' {
+            $actual | Should -HaveCount $testExportedExcelRows.Count
+        }
+        It 'with the correct data in the rows' {
+            foreach ($testRow in $testExportedExcelRows) {
+                $actualRow = $actual | Where-Object {
+                    $_.ComputerName -eq $testRow.ComputerName
+                }
+                $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                $actualRow.Path | Should -Be $testRow.Path
+                $actualRow.Filters | Should -Be $testRow.Filters
+                $actualRow.Duration | Should -BeLike $testRow.Duration
+                $actualRow.Error | Should -Be $testRow.Error
+            }
+        }
+    }
+    Context 'send a mail to the user when SendMail.When is Always' {
+        BeforeAll {
+            $testMail = @{
+                To          = 'bob@contoso.com'
+                Bcc         = $ScriptAdmin
+                Priority    = 'High'
+                Subject     = '0 files found, 1 error'
+                Message     = "*Found a total of 0 files*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**.pst*0*Check the attachment for details*"
+                Attachments = '* - 0 - Log.xlsx'
+            }
+        }
+        It 'Send-MailHC has the correct arguments' {
+            $mailParams.To | Should -Be $testMail.To
+            $mailParams.Bcc | Should -Be $testMail.Bcc
+            $mailParams.Priority | Should -Be $testMail.Priority
+            $mailParams.Subject | Should -Be $testMail.Subject
+            $mailParams.Message | Should -BeLike $testMail.Message
+            $mailParams.Attachments | Should -BeLike $testMail.Attachments
+        }
+        It 'Send-MailHC is called' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                ($To -eq $testMail.To) -and
+                ($Bcc -eq $testMail.Bcc) -and
+                ($Priority -eq $testMail.Priority) -and
+                ($Subject -eq $testMail.Subject) -and
+                ($Attachments -like $testMail.Attachments) -and
+                ($Message -like $testMail.Message)
+            }
+        }
+    }
+} -tag test
