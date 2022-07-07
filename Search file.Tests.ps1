@@ -368,7 +368,7 @@ Describe 'when matching file names are found' {
             'b kiwi b',
             'c kiwi c'
         ) | ForEach-Object {
-            (New-Item -Path "$testFolderPath\$_" -ItemType File).FullName
+            New-Item -Path "$testFolderPath\$_" -ItemType File
         }
 
         @{
@@ -396,12 +396,34 @@ Describe 'when matching file names are found' {
                     ComputerName  = $env:COMPUTERNAME
                     Path          = $testFolderPath
                     Filter        = '*kiwi*'
-                    File          = $testFile[0]
-                    CreationTime  = (Get-Item $testFile[0]).CreationTime
-                    LastWriteTime = (Get-Item $testFile[0]).LastWriteTime
-                    Size          = [MATH]::Round((Get-Item $testFile[0]).Length / 1GB, 2) 
-                    Size_         = (Get-Item $testFile[0]).Length
-                    Duration      = "'00:00:*"
+                    File          = $testFile[0].FullName
+                    CreationTime  = $testFile[0].CreationTime
+                    LastWriteTime = $testFile[0].LastWriteTime
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size_         = $testFile[0].Length
+                    Duration      = '00:00:*'
+                }
+                @{
+                    ComputerName  = $env:COMPUTERNAME
+                    Path          = $testFolderPath
+                    Filter        = '*kiwi*'
+                    File          = $testFile[1].FullName
+                    CreationTime  = $testFile[1].CreationTime
+                    LastWriteTime = $testFile[1].LastWriteTime
+                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
+                    Size_         = $testFile[1].Length
+                    Duration      = '00:00:*'
+                }
+                @{
+                    ComputerName  = $env:COMPUTERNAME
+                    Path          = $testFolderPath
+                    Filter        = '*kiwi*'
+                    File          = $testFile[2].FullName
+                    CreationTime  = $testFile[2].CreationTime
+                    LastWriteTime = $testFile[2].LastWriteTime
+                    Size          = [MATH]::Round($testFile[2].Length / 1GB, 2) 
+                    Size_         = $testFile[2].Length
+                    Duration      = '00:00:*'
                 }
             )
 

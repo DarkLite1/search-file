@@ -152,10 +152,13 @@ Begin {
         
         foreach ($filter in $Filters) {
             try {
+                $startDate = Get-Date
+
                 $result = [PSCustomObject]@{
-                    Filter = $filter
-                    Files  = @()
-                    Error  = $null
+                    Filter   = $filter
+                    Files    = @()
+                    Duration = $null
+                    Error    = $null
                 }
                 
                 $params = @{
@@ -172,6 +175,7 @@ Begin {
                 $Error.RemoveAt(0)
             }
             finally {
+                $result.Duration = (Get-Date) - $startDate
                 $result
             }
         }
@@ -459,7 +463,9 @@ End {
                     },
                     @{
                         Name       = 'Duration';
-                        Expression = { $j.Job.Duration }
+                        Expression = { 
+                            '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $r.Duration 
+                        }
                     }
                 }
             }
@@ -600,7 +606,7 @@ End {
 
                 $mailParams.Message = "
                 $errorMessage
-                <p>Found a total of '{0}' files:</p>
+                <p>Found a total of {0} files:</p>
                 <table>
                     $tableRows
                 </table>
