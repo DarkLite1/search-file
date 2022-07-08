@@ -1013,15 +1013,40 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 }
             }
         }
-    } -Tag test
+    }
     Context 'send a mail to the user when SendMail.When is Always' {
         BeforeAll {
             $testMail = @{
                 To          = 'bob@contoso.com'
                 Bcc         = $ScriptAdmin
-                Priority    = 'Normal'
-                Subject     = '3 files found'
-                Message     = "*Found a total of <b>3 files</b>*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**kiwi*3*Check the attachment for details*"
+                Priority    = 'High'
+                Subject     = '6 files found, 3 errors'
+                Message     = "*<p>Detected <b>3 errors</b> during execution.</p>*<p>Found a total of <b>6 files</b>:</p>*
+                *<th>PC1</th>*<th>c:\folder\a</th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>2</td>*
+                *<td>*.txt</td>*<td>1</td>*
+                *<th>PC1</th>*<th>c:\folder\b</th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>1</td>*
+                *<td>*.txt</td>*<td>0</td>*
+                *<th>PC2</th>*<th>c:\folder\a</th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>1</td>*
+                *<th>PC2</th>*<th>c:\folder\b</th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>1</td>*
+                *<th>PC3</th>*<th>c:\folder\a</th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>0</td>*
+                *<th>PC3</th>*<th>c:\folder\b</th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>0</td>*
+                *Check the attachment for details*"
                 Attachments = '* - 0 - Log.xlsx'
             }
         }
@@ -1042,5 +1067,5 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 ($Message -like $testMail.Message)
             }
         }
-    }
+    } -Tag test
 }
