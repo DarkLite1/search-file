@@ -252,6 +252,12 @@ Begin {
                 throw "Input file '$ImportFile': Property 'Filter' is mandatory."
             }
 
+            $task.ComputerName | Group-Object | 
+            Where-Object { $_.Count -ge 2 } |
+            ForEach-Object {
+                throw "Input file '$ImportFile': Property 'ComputerName' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
+            }
+
             $task.Filter | Group-Object | Where-Object { $_.Count -ge 2 } |
             ForEach-Object {
                 throw "Input file '$ImportFile': Property 'Filter' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
