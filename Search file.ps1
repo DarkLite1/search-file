@@ -376,8 +376,8 @@ Process {
                 foreach ($task in $Tasks) {
                     foreach (
                         $completedJob in 
-                        $task.Jobs.Job | Where-Object {
-                            ($_.Object.State -match 'Completed|Failed')
+                        $task.Jobs | Where-Object {
+                            ($_.Job.Object.State -match 'Completed|Failed')
                         }
                     ) {
                         & $getJobResult
@@ -410,7 +410,7 @@ Process {
                     ($_.Job.Object.Id -eq $finishedJob.Id)
                 }
                 if ($completedJob) {
-                    & $getJobResult
+                        & $getJobResult
                     break
                 }
             }

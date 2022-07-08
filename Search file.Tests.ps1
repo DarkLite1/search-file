@@ -3,7 +3,8 @@
 
 BeforeAll {
     $realCmdLet = @{
-        StartJob = Get-Command Start-Job
+        StartJob      = Get-Command Start-Job
+        InvokeCommand = Get-Command Invoke-Command
     }
 
     $testFolderPath = (New-Item "TestDrive:/folder" -ItemType Directory).FullName
@@ -161,7 +162,7 @@ Describe 'send an e-mail to the admin when' {
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                         $EntryType -eq 'Error'
                     }
-                } -Tag test
+                }
                 Context 'Filter' {
                     It 'is missing' {
                         @{
@@ -698,26 +699,135 @@ Describe 'when an error happens while searching for files' {
         }
     }
 }
-Describe 'with multiple computer names and paths in the input file and matching files are found' {
+Describe 'with multiple inputs in the input file and matching files are found' {
     BeforeAll {
         Remove-Item "$testFolderPath\*" -Recurse -Force
 
         $testFile = @(
-            'a kiwi a.txt',
-            'b kiwi b.txt',
+            'PC1 folder A file 1.pst',
+            'PC1 folder A file 2.pst',
+            'PC1 folder A file 3.txt',
+            'PC1 folder B file 4.pst',
+            'PC2 folder A file 5.txt',
+            'PC2 folder B file 6.txt',
             'c kiwi c.txt'
         ) | ForEach-Object {
             New-Item -Path "$testFolderPath\$_" -ItemType File
+        }
+
+        Mock Invoke-Command {
+            & $realCmdLet.InvokeCommand -Scriptblock { 
+                [PSCustomObject]@{
+                    Filter   = '*.pst'
+                    Files    = @(
+                        $using:testFile[0],
+                        $using:testFile[1]
+                    )
+                    Duration = (Get-Date).AddSeconds(2) - (Get-Date)
+                    Error    = $null
+                }
+                [PSCustomObject]@{
+                    Filter   = '*.txt'
+                    Files    = @(
+                        $using:testFile[2]
+                    )
+                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Error    = $null
+                }
+            } -AsJob -ComputerName $env:COMPUTERNAME 
+        } -ParameterFilter {
+            ($ComputerName -eq 'PC1') -and
+            ($ArgumentList[0] -eq 'c:\folder\a')
+        }
+        Mock Invoke-Command {
+            & $realCmdLet.InvokeCommand -Scriptblock { 
+                [PSCustomObject]@{
+                    Filter   = '*.pst'
+                    Files    = @(
+                        $using:testFile[3]
+                    )
+                    Duration = (Get-Date).AddSeconds(1) - (Get-Date)
+                    Error    = $null
+                }
+                [PSCustomObject]@{
+                    Filter   = '*.txt'
+                    Files    = @()
+                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Error    = 'Oops'
+                }
+            } -AsJob -ComputerName $env:COMPUTERNAME
+        } -ParameterFilter {
+            ($ComputerName -eq 'PC1') -and
+            ($ArgumentList[0] -eq 'c:\folder\b')
+        }
+        Mock Invoke-Command {
+            & $realCmdLet.InvokeCommand -Scriptblock { 
+                [PSCustomObject]@{
+                    Filter   = '*.pst'
+                    Files    = @()
+                    Duration = (Get-Date).AddSeconds(2) - (Get-Date)
+                    Error    = $null
+                }
+                [PSCustomObject]@{
+                    Filter   = '*.txt'
+                    Files    = @(
+                        $using:testFile[4]
+                    )
+                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Error    = $null
+                }
+            } -AsJob -ComputerName $env:COMPUTERNAME
+        } -ParameterFilter {
+            ($ComputerName -eq 'PC2') -and
+            ($ArgumentList[0] -eq 'c:\folder\a')
+        }
+        Mock Invoke-Command {
+            & $realCmdLet.InvokeCommand -Scriptblock { 
+                [PSCustomObject]@{
+                    Filter   = '*.pst'
+                    Files    = @()
+                    Duration = (Get-Date).AddSeconds(2) - (Get-Date)
+                    Error    = $null
+                }
+                [PSCustomObject]@{
+                    Filter   = '*.txt'
+                    Files    = @(
+                        $using:testFile[5]
+                    )
+                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Error    = $null
+                }
+            } -AsJob -ComputerName $env:COMPUTERNAME
+        } -ParameterFilter {
+            ($ComputerName -eq 'PC2') -and
+            ($ArgumentList[0] -eq 'c:\folder\b')
+        }
+        Mock Invoke-Command {
+            & $realCmdLet.InvokeCommand -Scriptblock { 
+                throw 'computer offline'
+            } -AsJob -ComputerName $env:COMPUTERNAME
+        } -ParameterFilter {
+            ($ComputerName -eq 'PC3') -and
+            ($ArgumentList[0] -eq 'c:\folder\a')
+        }
+        Mock Invoke-Command {
+            & $realCmdLet.InvokeCommand -Scriptblock { 
+                Start-Sleep -Seconds 1
+                throw 'computer offline'
+            } -AsJob -ComputerName $env:COMPUTERNAME
+        } -ParameterFilter {
+            ($ComputerName -eq 'PC3') -and
+            ($ArgumentList[0] -eq 'c:\folder\b')
         }
 
         @{
             MaxConcurrentJobs = 6
             Tasks             = @(
                 @{
-                    ComputerName = $null
-                    FolderPath   = $testFolderPath
-                    Filter       = '*kiwi*'
-                    Recurse      = $false
+                    ComputerName = @('PC1', 'PC2', 'PC3')
+                    FolderPath   = @('c:\folder\a', 'c:\folder\b')
+                    Filter       = @('*.pst', '*.txt')
+                    Recurse      = $true
                     SendMail     = @{
                         To   = @('bob@contoso.com')
                         When = 'Always'
@@ -728,6 +838,16 @@ Describe 'with multiple computer names and paths in the input file and matching 
 
         .$testScript @testParams
     }
+    Context 'Invoke-Command is called' {
+        It 'for each computer and each path' {
+            Should -Invoke Invoke-Command -Exactly 6 -Scope Describe 
+
+            Should -Invoke Invoke-Command -Exactly 6 -Scope Describe -ParameterFilter {
+                ($ArgumentList[1] -eq $true) -and
+                ($ArgumentList[2] -eq @('*.pst', '*.txt'))
+            }
+        }
+    } -Tag test
     Context 'export an Excel file' {
         BeforeAll {
             $testExportedExcelRows = @(
@@ -829,4 +949,4 @@ Describe 'with multiple computer names and paths in the input file and matching 
             }
         }
     }
-} -Tag test
+}
