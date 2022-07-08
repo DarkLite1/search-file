@@ -804,7 +804,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         }
         Mock Invoke-Command {
             & $realCmdLet.InvokeCommand -Scriptblock { 
-                throw 'computer offline'
+                throw 'Oops2'
             } -AsJob -ComputerName $env:COMPUTERNAME
         } -ParameterFilter {
             ($ComputerName -eq 'PC3') -and
@@ -813,7 +813,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         Mock Invoke-Command {
             & $realCmdLet.InvokeCommand -Scriptblock { 
                 Start-Sleep -Seconds 1
-                throw 'computer offline'
+                Write-Error 'Oops3'
             } -AsJob -ComputerName $env:COMPUTERNAME
         } -ParameterFilter {
             ($ComputerName -eq 'PC3') -and
@@ -855,112 +855,162 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             Should -Not -Invoke Start-Job -Scope Describe
         }
     }
-    Context 'export an Excel file' {
-        BeforeAll {
-            $testExportedExcelRows = @(
-                @{
-                    ComputerName  = 'PC1'
-                    Path          = 'c:\folder\a'
-                    Filter        = '*.pst'
-                    Recurse       = $true
-                    File          = $testFile[0].FullName
-                    CreationTime  = $testFile[0].CreationTime
-                    LastWriteTime = $testFile[0].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
-                    Size_         = $testFile[0].Length
-                    Duration      = '00:00:02:000'
-                }
-                @{
-                    ComputerName  = 'PC1'
-                    Path          = 'c:\folder\a'
-                    Filter        = '*.pst'
-                    Recurse       = $true
-                    File          = $testFile[1].FullName
-                    CreationTime  = $testFile[1].CreationTime
-                    LastWriteTime = $testFile[1].LastWriteTime
-                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
-                    Size_         = $testFile[1].Length
-                    Duration      = '00:00:02:000'
-                }
-                @{
-                    ComputerName  = 'PC1'
-                    Path          = 'c:\folder\a'
-                    Filter        = '*.txt'
-                    Recurse       = $true
-                    File          = $testFile[2].FullName
-                    CreationTime  = $testFile[2].CreationTime
-                    LastWriteTime = $testFile[2].LastWriteTime
-                    Size          = [MATH]::Round($testFile[2].Length / 1GB, 2) 
-                    Size_         = $testFile[2].Length
-                    Duration      = '00:00:03:000'
-                }
-                @{
-                    ComputerName  = 'PC1'
-                    Path          = 'c:\folder\b'
-                    Filter        = '*.pst'
-                    Recurse       = $true
-                    File          = $testFile[3].FullName
-                    CreationTime  = $testFile[3].CreationTime
-                    LastWriteTime = $testFile[3].LastWriteTime
-                    Size          = [MATH]::Round($testFile[3].Length / 1GB, 2) 
-                    Size_         = $testFile[3].Length
-                    Duration      = '00:00:01:000'
-                }
-                @{
-                    ComputerName  = 'PC2'
-                    Path          = 'c:\folder\a'
-                    Filter        = '*.txt'
-                    Recurse       = $true
-                    File          = $testFile[4].FullName
-                    CreationTime  = $testFile[4].CreationTime
-                    LastWriteTime = $testFile[4].LastWriteTime
-                    Size          = [MATH]::Round($testFile[4].Length / 1GB, 2) 
-                    Size_         = $testFile[4].Length
-                    Duration      = '00:03:00:000'
-                }
-                @{
-                    ComputerName  = 'PC2'
-                    Path          = 'c:\folder\b'
-                    Filter        = '*.txt'
-                    Recurse       = $true
-                    File          = $testFile[5].FullName
-                    CreationTime  = $testFile[5].CreationTime
-                    LastWriteTime = $testFile[5].LastWriteTime
-                    Size          = [MATH]::Round($testFile[5].Length / 1GB, 2) 
-                    Size_         = $testFile[5].Length
-                    Duration      = '00:00:00:300'
-                }
+    Context "export an Excel file with" {
+        Context "worksheet 'Files'" {
+            BeforeAll {
+                $testExportedExcelRows = @(
+                    @{
+                        ComputerName  = 'PC1'
+                        Path          = 'c:\folder\a'
+                        Filter        = '*.pst'
+                        Recurse       = $true
+                        File          = $testFile[0].FullName
+                        CreationTime  = $testFile[0].CreationTime
+                        LastWriteTime = $testFile[0].LastWriteTime
+                        Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                        Size_         = $testFile[0].Length
+                        Duration      = '00:00:02:000'
+                    }
+                    @{
+                        ComputerName  = 'PC1'
+                        Path          = 'c:\folder\a'
+                        Filter        = '*.pst'
+                        Recurse       = $true
+                        File          = $testFile[1].FullName
+                        CreationTime  = $testFile[1].CreationTime
+                        LastWriteTime = $testFile[1].LastWriteTime
+                        Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
+                        Size_         = $testFile[1].Length
+                        Duration      = '00:00:02:000'
+                    }
+                    @{
+                        ComputerName  = 'PC1'
+                        Path          = 'c:\folder\a'
+                        Filter        = '*.txt'
+                        Recurse       = $true
+                        File          = $testFile[2].FullName
+                        CreationTime  = $testFile[2].CreationTime
+                        LastWriteTime = $testFile[2].LastWriteTime
+                        Size          = [MATH]::Round($testFile[2].Length / 1GB, 2) 
+                        Size_         = $testFile[2].Length
+                        Duration      = '00:00:03:000'
+                    }
+                    @{
+                        ComputerName  = 'PC1'
+                        Path          = 'c:\folder\b'
+                        Filter        = '*.pst'
+                        Recurse       = $true
+                        File          = $testFile[3].FullName
+                        CreationTime  = $testFile[3].CreationTime
+                        LastWriteTime = $testFile[3].LastWriteTime
+                        Size          = [MATH]::Round($testFile[3].Length / 1GB, 2) 
+                        Size_         = $testFile[3].Length
+                        Duration      = '00:00:01:000'
+                    }
+                    @{
+                        ComputerName  = 'PC2'
+                        Path          = 'c:\folder\a'
+                        Filter        = '*.txt'
+                        Recurse       = $true
+                        File          = $testFile[4].FullName
+                        CreationTime  = $testFile[4].CreationTime
+                        LastWriteTime = $testFile[4].LastWriteTime
+                        Size          = [MATH]::Round($testFile[4].Length / 1GB, 2) 
+                        Size_         = $testFile[4].Length
+                        Duration      = '00:03:00:000'
+                    }
+                    @{
+                        ComputerName  = 'PC2'
+                        Path          = 'c:\folder\b'
+                        Filter        = '*.txt'
+                        Recurse       = $true
+                        File          = $testFile[5].FullName
+                        CreationTime  = $testFile[5].CreationTime
+                        LastWriteTime = $testFile[5].LastWriteTime
+                        Size          = [MATH]::Round($testFile[5].Length / 1GB, 2) 
+                        Size_         = $testFile[5].Length
+                        Duration      = '00:00:00:300'
+                    }
+                )
 
-            )
+                $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 0 - Log.xlsx'
 
-            $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 0 - Log.xlsx'
-
-            $actual = Import-Excel -Path $testExcelLogFile.FullName -WorksheetName 'Files'
-        }
-        It 'to the log folder' {
-            $testExcelLogFile | Should -Not -BeNullOrEmpty
-        }
-        It 'with the correct total rows' {
-            $actual | Should -HaveCount $testExportedExcelRows.Count
-        }
-        It 'with the correct data in the rows' {
-            foreach ($testRow in $testExportedExcelRows) {
-                $actualRow = $actual | Where-Object {
-                    $_.File -eq $testRow.File
+                $actual = Import-Excel -Path $testExcelLogFile.FullName -WorksheetName 'Files'
+            }
+            It 'to the log folder' {
+                $testExcelLogFile | Should -Not -BeNullOrEmpty
+            }
+            It 'with the correct total rows' {
+                $actual | Should -HaveCount $testExportedExcelRows.Count
+            }
+            It 'with the correct data in the rows' {
+                foreach ($testRow in $testExportedExcelRows) {
+                    $actualRow = $actual | Where-Object {
+                        $_.File -eq $testRow.File
+                    }
+                    $actualRow.File | Should -Be $testRow.File
+                    $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                    $actualRow.Path | Should -Be $testRow.Path
+                    $actualRow.Filter | Should -Be $testRow.Filter
+                    $actualRow.Recurse | Should -Be $testRow.Recurse
+                    $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                    Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
+                    $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                    Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
+                    $actualRow.Size | Should -Be $testRow.Size
+                    $actualRow.Size_ | Should -Be $testRow.Size_
+                    $actualRow.Error | Should -Be $testRow.Error
+                    $actualRow.Duration | Should -BeLike $testRow.Duration
                 }
-                $actualRow.File | Should -Be $testRow.File
-                $actualRow.ComputerName | Should -Be $testRow.ComputerName
-                $actualRow.Path | Should -Be $testRow.Path
-                $actualRow.Filter | Should -Be $testRow.Filter
-                $actualRow.Recurse | Should -Be $testRow.Recurse
-                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
-                Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
-                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
-                Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
-                $actualRow.Size | Should -Be $testRow.Size
-                $actualRow.Size_ | Should -Be $testRow.Size_
-                $actualRow.Error | Should -Be $testRow.Error
-                $actualRow.Duration | Should -BeLike $testRow.Duration
+            }
+        }
+        Context "worksheet 'Errors'" {
+            BeforeAll {
+                $testExportedExcelRows = @(
+                    @{
+                        ComputerName = 'PC1'
+                        Path         = 'c:\folder\b'
+                        Filter       = '*.pst, *.txt'
+                        Duration     = '00:00:*'
+                        Error        = 'Oops'
+                    }
+                    @{
+                        ComputerName = 'PC3'
+                        Path         = 'c:\folder\a'
+                        Filter       = '*.pst, *.txt'
+                        Duration     = '00:00:*'
+                        Error        = 'Oops2'
+                    }
+                    @{
+                        ComputerName = 'PC3'
+                        Path         = 'c:\folder\b'
+                        Filter       = '*.pst, *.txt'
+                        Duration     = '00:00:*'
+                        Error        = 'Oops3'
+                    }
+                )
+
+                $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 0 - Log.xlsx'
+
+                $actual = Import-Excel -Path $testExcelLogFile.FullName -WorksheetName 'Errors'
+            }
+            It 'to the log folder' {
+                $testExcelLogFile | Should -Not -BeNullOrEmpty
+            }
+            It 'with the correct total rows' {
+                $actual | Should -HaveCount $testExportedExcelRows.Count
+            }
+            It 'with the correct data in the rows' {
+                foreach ($testRow in $testExportedExcelRows) {
+                    $actualRow = $actual | Where-Object {
+                        $_.Error -eq $testRow.Error
+                    }
+                    $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                    $actualRow.Path | Should -Be $testRow.Path
+                    $actualRow.Filter | Should -Be $testRow.Filter
+                    $actualRow.Error | Should -Be $testRow.Error
+                    $actualRow.Duration | Should -BeLike $testRow.Duration
+                }
             }
         }
     } -Tag test

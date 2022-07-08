@@ -447,10 +447,18 @@ End {
                 Save      = "$logFile - $i - Mail.html"
             }
 
-            $exportToExcel = @{}
+            $excelParams = @{
+                Path         = "$logFile - $i - Log.xlsx"
+                AutoSize     = $true
+                FreezeTopRow = $true
+            }
+            $excelSheet = @{
+                Files = @()
+                Errors = @()
+            }
 
-            #region Collect files and errors
-            [Array]$exportToExcel.JobResults = foreach ($j in $Tasks[$i].Jobs) {
+            #region Create Excel worksheet Files
+            $excelSheet.Files += foreach ($j in $Tasks[$i].Jobs) {
                 foreach ($r in $j.Job.Result) {
                     $r.Files | Select-Object -Property @{
                         Name       = 'ComputerName';
@@ -497,49 +505,16 @@ End {
                 }
             }
 
-            [Array]$exportToExcel.JobErrors = foreach ($j in $Tasks[$i].Jobs) {
-                $j.Job | Where-Object { $_.Errors } | Select-Object -Property @{
-                    Name       = 'ComputerName';
-                    Expression = { $j.ComputerName }
-                },
-                @{
-                    Name       = 'Path';
-                    Expression = { $j.Path }
-                },
-                @{
-                    Name       = 'Filters'; 
-                    Expression = { $Tasks[$i].Filter -join ' | ' }
-                },
-                @{
-                    Name       = 'Duration';
-                    Expression = { 
-                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration 
-                    }
-                },
-                @{
-                    Name       = 'Error';
-                    Expression = { $_.Errors -join ', ' }
-                }
-            }
-            #endregion
-        
-            #region Export to Excel file
-            $excelParams = @{
-                Path         = "$logFile - $i - Log.xlsx"
-                AutoSize     = $true
-                FreezeTopRow = $true
-            }
-
-            if ($exportToExcel.JobResults) {
+            if ($excelSheet.Files) {
                 $excelParams.WorksheetName = 'Files'
                 $excelParams.TableName = 'Files'
 
                 $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f 
-                $exportToExcel.JobResults.Count, 
+                $excelSheet.Files.Count, 
                 $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
-                $exportToExcel.JobResults | 
+                $excelSheet.Files | 
                 Export-Excel @excelParams -AutoNameRange -CellStyleSB {
                     Param (
                         $WorkSheet,
@@ -560,17 +535,44 @@ End {
 
                 $mailParams.Attachments = $excelParams.Path
             }
+            #endregion
 
-            if ($exportToExcel.JobErrors) {
+            #region Create Excel worksheet Errors
+            $excelSheet.Errors += foreach ($j in $Tasks[$i].Jobs) {
+                $j.Job | Where-Object { $_.Errors } | Select-Object -Property @{
+                    Name       = 'ComputerName';
+                    Expression = { $j.ComputerName }
+                },
+                @{
+                    Name       = 'Path';
+                    Expression = { $j.Path }
+                },
+                @{
+                    Name       = 'Filter'; 
+                    Expression = { $Tasks[$i].Filter -join ', ' }
+                },
+                @{
+                    Name       = 'Duration';
+                    Expression = { 
+                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration 
+                    }
+                },
+                @{
+                    Name       = 'Error';
+                    Expression = { $_.Errors -join ', ' }
+                }
+            }
+
+            if ($excelSheet.Errors) {
                 $excelParams.WorksheetName = 'Errors'
                 $excelParams.TableName = 'Errors'
 
                 $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
-                $exportToExcel.JobErrors.Count, 
+                $excelSheet.Errors.Count, 
                 $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
-                $exportToExcel.JobErrors | Export-Excel @excelParams
+                $excelSheet.Errors | Export-Excel @excelParams
 
                 $mailParams.Attachments = $excelParams.Path
             }
@@ -579,26 +581,26 @@ End {
             #region Send mail
             if (
                 ($Tasks[$i].SendMail.When -eq 'Always') -or
-                ($exportToExcel.JobResults) -or
-                ($exportToExcel.JobErrors)
+                ($excelSheet.Files) -or
+                ($excelSheet.Errors)
             ) {
                 $errorMessage = $null
 
                 #region Subject and Priority
                 $mailParams.Subject = '{0} file{1} found' -f 
-                $exportToExcel.JobResults.Count,
-                $(if ($exportToExcel.JobResults.Count -ne 1) { 's' })
+                $excelSheet.Files.Count,
+                $(if ($excelSheet.Files.Count -ne 1) { 's' })
                 
-                if ($exportToExcel.JobErrors) {
+                if ($excelSheet.Errors) {
                     $mailParams.Priority = 'High'
 
                     $mailParams.Subject += ', {0} error{1}' -f 
-                    $exportToExcel.JobErrors.Count,
-                    $(if ($exportToExcel.JobErrors.Count -ne 1) { 's' })
+                    $excelSheet.Errors.Count,
+                    $(if ($excelSheet.Errors.Count -ne 1) { 's' })
 
                     $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f 
-                    $exportToExcel.JobErrors.Count,
-                    $(if ($exportToExcel.JobErrors.Count -ne 1) { 's' })
+                    $excelSheet.Errors.Count,
+                    $(if ($excelSheet.Errors.Count -ne 1) { 's' })
                 }
                 #endregion
 
@@ -622,7 +624,7 @@ End {
                                 <td>{0}</td>
                                 <td>{1}</td>
                             </tr>" -f $filter, $(
-                                $exportToExcel.JobResults | Where-Object {
+                                $excelSheet.Files | Where-Object {
                                     ($_.ComputerName -eq $computerName) -and
                                     ($_.Path -eq $path) -and
                                     ($_.Filter -eq $filter) 
@@ -639,7 +641,7 @@ End {
                 <table>
                     $tableRows
                 </table>
-                {1}" -f $exportToExcel.JobResults.Count, $(
+                {1}" -f $excelSheet.Files.Count, $(
                     if ($mailParams.Attachments) {
                         '<p><i>* Check the attachment for details</i></p>'
                     }
