@@ -702,6 +702,7 @@ Describe 'when an error happens while searching for files' {
 Describe 'with multiple inputs in the input file and matching files are found' {
     BeforeAll {
         Remove-Item "$testFolderPath\*" -Recurse -Force
+        $testDate = Get-Date
 
         $testFile = @(
             'PC1 folder A file 1.pst',
@@ -709,8 +710,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             'PC1 folder A file 3.txt',
             'PC1 folder B file 4.pst',
             'PC2 folder A file 5.txt',
-            'PC2 folder B file 6.txt',
-            'c kiwi c.txt'
+            'PC2 folder B file 6.txt'
         ) | ForEach-Object {
             New-Item -Path "$testFolderPath\$_" -ItemType File
         }
@@ -723,7 +723,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         $using:testFile[0],
                         $using:testFile[1]
                     )
-                    Duration = (Get-Date).AddSeconds(2) - (Get-Date)
+                    Duration = ($using:testDate).AddSeconds(2) - $using:testDate
                     Error    = $null
                 }
                 [PSCustomObject]@{
@@ -731,7 +731,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     Files    = @(
                         $using:testFile[2]
                     )
-                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Duration = ($using:testDate).AddSeconds(3) - $using:testDate
                     Error    = $null
                 }
             } -AsJob -ComputerName $env:COMPUTERNAME 
@@ -746,13 +746,13 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     Files    = @(
                         $using:testFile[3]
                     )
-                    Duration = (Get-Date).AddSeconds(1) - (Get-Date)
+                    Duration = ($using:testDate).AddSeconds(1) - $using:testDate
                     Error    = $null
                 }
                 [PSCustomObject]@{
                     Filter   = '*.txt'
                     Files    = @()
-                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Duration = ($using:testDate).AddSeconds(3) - $using:testDate
                     Error    = 'Oops'
                 }
             } -AsJob -ComputerName $env:COMPUTERNAME
@@ -765,7 +765,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 [PSCustomObject]@{
                     Filter   = '*.pst'
                     Files    = @()
-                    Duration = (Get-Date).AddSeconds(2) - (Get-Date)
+                    Duration = ($using:testDate).AddSeconds(2) - $using:testDate
                     Error    = $null
                 }
                 [PSCustomObject]@{
@@ -773,7 +773,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     Files    = @(
                         $using:testFile[4]
                     )
-                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Duration = ($using:testDate).AddMinutes(3) - $using:testDate
                     Error    = $null
                 }
             } -AsJob -ComputerName $env:COMPUTERNAME
@@ -786,7 +786,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 [PSCustomObject]@{
                     Filter   = '*.pst'
                     Files    = @()
-                    Duration = (Get-Date).AddSeconds(2) - (Get-Date)
+                    Duration = ($using:testDate).AddSeconds(2) - $using:testDate
                     Error    = $null
                 }
                 [PSCustomObject]@{
@@ -794,7 +794,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     Files    = @(
                         $using:testFile[5]
                     )
-                    Duration = (Get-Date).AddSeconds(3) - (Get-Date)
+                    Duration = ($using:testDate).AddMilliseconds(300) - $using:testDate
                     Error    = $null
                 }
             } -AsJob -ComputerName $env:COMPUTERNAME
@@ -854,46 +854,83 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         It 'Start-Job is not called' {
             Should -Not -Invoke Start-Job -Scope Describe
         }
-    } -Tag test
+    }
     Context 'export an Excel file' {
         BeforeAll {
             $testExportedExcelRows = @(
                 @{
-                    ComputerName  = $env:COMPUTERNAME
-                    Path          = $testFolderPath
-                    Filter        = '*kiwi*'
-                    Recurse       = $false
+                    ComputerName  = 'PC1'
+                    Path          = 'c:\folder\a'
+                    Filter        = '*.pst'
+                    Recurse       = $true
                     File          = $testFile[0].FullName
                     CreationTime  = $testFile[0].CreationTime
                     LastWriteTime = $testFile[0].LastWriteTime
                     Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
                     Size_         = $testFile[0].Length
-                    Duration      = '00:00:*'
+                    Duration      = '00:00:02:000'
                 }
                 @{
-                    ComputerName  = $env:COMPUTERNAME
-                    Path          = $testFolderPath
-                    Filter        = '*kiwi*'
-                    Recurse       = $false
+                    ComputerName  = 'PC1'
+                    Path          = 'c:\folder\a'
+                    Filter        = '*.pst'
+                    Recurse       = $true
                     File          = $testFile[1].FullName
                     CreationTime  = $testFile[1].CreationTime
                     LastWriteTime = $testFile[1].LastWriteTime
                     Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
                     Size_         = $testFile[1].Length
-                    Duration      = '00:00:*'
+                    Duration      = '00:00:02:000'
                 }
                 @{
-                    ComputerName  = $env:COMPUTERNAME
-                    Path          = $testFolderPath
-                    Filter        = '*kiwi*'
-                    Recurse       = $false
+                    ComputerName  = 'PC1'
+                    Path          = 'c:\folder\a'
+                    Filter        = '*.txt'
+                    Recurse       = $true
                     File          = $testFile[2].FullName
                     CreationTime  = $testFile[2].CreationTime
                     LastWriteTime = $testFile[2].LastWriteTime
                     Size          = [MATH]::Round($testFile[2].Length / 1GB, 2) 
                     Size_         = $testFile[2].Length
-                    Duration      = '00:00:*'
+                    Duration      = '00:00:03:000'
                 }
+                @{
+                    ComputerName  = 'PC1'
+                    Path          = 'c:\folder\b'
+                    Filter        = '*.pst'
+                    Recurse       = $true
+                    File          = $testFile[3].FullName
+                    CreationTime  = $testFile[3].CreationTime
+                    LastWriteTime = $testFile[3].LastWriteTime
+                    Size          = [MATH]::Round($testFile[3].Length / 1GB, 2) 
+                    Size_         = $testFile[3].Length
+                    Duration      = '00:00:01:000'
+                }
+                @{
+                    ComputerName  = 'PC2'
+                    Path          = 'c:\folder\a'
+                    Filter        = '*.txt'
+                    Recurse       = $true
+                    File          = $testFile[4].FullName
+                    CreationTime  = $testFile[4].CreationTime
+                    LastWriteTime = $testFile[4].LastWriteTime
+                    Size          = [MATH]::Round($testFile[4].Length / 1GB, 2) 
+                    Size_         = $testFile[4].Length
+                    Duration      = '00:03:00:000'
+                }
+                @{
+                    ComputerName  = 'PC2'
+                    Path          = 'c:\folder\b'
+                    Filter        = '*.txt'
+                    Recurse       = $true
+                    File          = $testFile[5].FullName
+                    CreationTime  = $testFile[5].CreationTime
+                    LastWriteTime = $testFile[5].LastWriteTime
+                    Size          = [MATH]::Round($testFile[5].Length / 1GB, 2) 
+                    Size_         = $testFile[5].Length
+                    Duration      = '00:00:00:300'
+                }
+
             )
 
             $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 0 - Log.xlsx'
@@ -926,7 +963,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 $actualRow.Duration | Should -BeLike $testRow.Duration
             }
         }
-    }
+    } -Tag test
     Context 'send a mail to the user when SendMail.When is Always' {
         BeforeAll {
             $testMail = @{
