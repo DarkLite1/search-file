@@ -714,7 +714,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         ) | ForEach-Object {
             New-Item -Path "$testFolderPath\$_" -ItemType File
         }
-
+        Mock Start-Job
         Mock Invoke-Command {
             & $realCmdLet.InvokeCommand -Scriptblock { 
                 [PSCustomObject]@{
@@ -841,11 +841,18 @@ Describe 'with multiple inputs in the input file and matching files are found' {
     Context 'Invoke-Command is called' {
         It 'for each computer and each path' {
             Should -Invoke Invoke-Command -Exactly 6 -Scope Describe 
-
+        }
+        It 'with the correct arguments' {
             Should -Invoke Invoke-Command -Exactly 6 -Scope Describe -ParameterFilter {
+                ($ComputerName -like 'PC*') -and
+                ($ArgumentList[0] -like 'c:\folder\*') -and
                 ($ArgumentList[1] -eq $true) -and
-                ($ArgumentList[2] -eq @('*.pst', '*.txt'))
+                ($ArgumentList[2][0] -eq '*.pst') -and
+                ($ArgumentList[2][1] -eq '*.txt')
             }
+        }
+        It 'Start-Job is not called' {
+            Should -Not -Invoke Start-Job -Scope Describe
         }
     } -Tag test
     Context 'export an Excel file' {
