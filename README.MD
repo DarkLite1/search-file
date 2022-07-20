@@ -12,7 +12,7 @@ Examples:
 A scheduled task can be created to run the script in an automated way.
 
 # Best practices
-- Read the [help section](Search%file.ps1) in the script for an explanation of the input file parameters.
+- Read the [help section](Search%20file.ps1) in the script for an explanation of the input file parameters.
 
 # Requirements
 All required modules can be found in the [repository](https://github.com/DarkLite1?tab=repositories) and are free to use.
