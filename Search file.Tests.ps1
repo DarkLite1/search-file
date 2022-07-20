@@ -639,7 +639,7 @@ Describe 'when an error happens while searching for files' {
                 @{
                     ComputerName = $env:COMPUTERNAME
                     Path         = $testFolderPath
-                    Filters      = '*.pst'
+                    Filter       = '*.pst'
                     Duration     = '00:00:*'
                     Error        = 'oops'
                 }
