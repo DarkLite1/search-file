@@ -612,7 +612,7 @@ End {
                     foreach ($path in $Tasks[$i].FolderPath) {
                         "<tr>
                             <th>{0}</th>
-                            <th>{1}</th>
+                            <th><a href=`"{1}`">{1}</a></th>
                        </tr>
                        <tr>
                             <td>Filter</td>

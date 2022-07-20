@@ -1022,27 +1022,27 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 Priority    = 'High'
                 Subject     = '6 files found, 3 errors'
                 Message     = "*<p>Detected <b>3 errors</b> during execution.</p>*<p>Found a total of <b>6 files</b>:</p>*
-                *<th>PC1</th>*<th>c:\folder\a</th>*
+                *<th>PC1</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>2</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC1</th>*<th>c:\folder\b</th>*
+                *<th>PC1</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>1</td>*
                 *<td>*.txt</td>*<td>0</td>*
-                *<th>PC2</th>*<th>c:\folder\a</th>*
+                *<th>PC2</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC2</th>*<th>c:\folder\b</th>*
+                *<th>PC2</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC3</th>*<th>c:\folder\a</th>*
+                *<th>PC3</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>0</td>*
-                *<th>PC3</th>*<th>c:\folder\b</th>*
+                *<th>PC3</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>0</td>*
