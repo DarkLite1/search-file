@@ -12,6 +12,10 @@
     .PARAMETER Tasks
         Collection of a items to check.
 
+    .PARAMETER Tasks.ComputerName
+        Where the search is executed. If left blank it's best to UNC paths in
+        'FolderPath'.
+
     .PARAMETER Tasks.FolderPath
         One or more paths to a folder where to search for files matching the 
         filter.
