@@ -119,7 +119,7 @@ Begin {
             $result.Errors += $e.ToString()
             $error.Remove($e)
         }
-        if ($resultErrors = $result.Result.Error | Where-Object {$_}) {
+        if ($resultErrors = $result.Result.Error | Where-Object { $_ }) {
             foreach ($e in $resultErrors) {
                 $M = "'{0}' error '{1}'" -f $computerName, $e
                 Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
@@ -414,7 +414,7 @@ Process {
                     ($_.Job.Object.Id -eq $finishedJob.Id)
                 }
                 if ($completedJob) {
-                        & $getJobResult
+                    & $getJobResult
                     break
                 }
             }
@@ -447,7 +447,10 @@ End {
                 Bcc       = $ScriptAdmin
                 Priority  = 'Normal'
                 LogFolder = $logParams.LogFolder
-                Header    = $ScriptName
+                Header    = if ($Tasks[$i].SendMail.Header) {
+                    $Tasks[$i].SendMail.Header
+                }
+                else { $ScriptName }
                 Save      = "$logFile - $i - Mail.html"
             }
 
@@ -457,7 +460,7 @@ End {
                 FreezeTopRow = $true
             }
             $excelSheet = @{
-                Files = @()
+                Files  = @()
                 Errors = @()
             }
 

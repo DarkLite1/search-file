@@ -1017,6 +1017,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
     Context 'send a mail to the user when SendMail.When is Always' {
         BeforeAll {
             $testMail = @{
+                Header      = $testParams.ScriptName
                 To          = 'bob@contoso.com'
                 Bcc         = $ScriptAdmin
                 Priority    = 'High'
@@ -1051,6 +1052,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             }
         }
         It 'Send-MailHC has the correct arguments' {
+            $mailParams.Header | Should -Be $testMail.Header
             $mailParams.To | Should -Be $testMail.To
             $mailParams.Bcc | Should -Be $testMail.Bcc
             $mailParams.Subject | Should -Be $testMail.Subject
@@ -1059,6 +1061,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         }
         It 'Send-MailHC is called' {
             Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                ($Header -eq $testMail.Header) -and
                 ($To -eq $testMail.To) -and
                 ($Bcc -eq $testMail.Bcc) -and
                 ($Priority -eq $testMail.Priority) -and
@@ -1067,5 +1070,81 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 ($Message -like $testMail.Message)
             }
         }
-    } -Tag test
+    }
+    Context 'send a mail to the user with the header in SendMail.Header' {
+        BeforeAll {
+            @{
+                MaxConcurrentJobs = 6
+                Tasks             = @(
+                    @{
+                        ComputerName = @('PC1', 'PC2', 'PC3')
+                        FolderPath   = @('c:\folder\a', 'c:\folder\b')
+                        Filter       = @('*.pst', '*.txt')
+                        Recurse      = $true
+                        SendMail     = @{
+                            Header = 'My custom header'
+                            To     = @('bob@contoso.com')
+                            When   = 'Always'
+                        }
+                    }
+                )
+            } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+    
+            .$testScript @testParams
+
+            $testMail = @{
+                Header      = 'My custom header'
+                To          = 'bob@contoso.com'
+                Bcc         = $ScriptAdmin
+                Priority    = 'High'
+                Subject     = '6 files found, 3 errors'
+                Message     = "*<p>Detected <b>3 errors</b> during execution.</p>*<p>Found a total of <b>6 files</b>:</p>*
+                *<th>PC1</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>2</td>*
+                *<td>*.txt</td>*<td>1</td>*
+                *<th>PC1</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>1</td>*
+                *<td>*.txt</td>*<td>0</td>*
+                *<th>PC2</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>1</td>*
+                *<th>PC2</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>1</td>*
+                *<th>PC3</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>0</td>*
+                *<th>PC3</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<td>Filter</td>*<td>Files found</td>*
+                *<td>*.pst</td>*<td>0</td>*
+                *<td>*.txt</td>*<td>0</td>*
+                *Check the attachment for details*"
+                Attachments = '* - 0 - Log.xlsx'
+            }
+        }
+        It 'Send-MailHC has the correct arguments' {
+            $mailParams.Header | Should -Be $testMail.Header
+            $mailParams.To | Should -Be $testMail.To
+            $mailParams.Bcc | Should -Be $testMail.Bcc
+            $mailParams.Subject | Should -Be $testMail.Subject
+            $mailParams.Message | Should -BeLike $testMail.Message
+            $mailParams.Attachments | Should -BeLike $testMail.Attachments
+        }
+        It 'Send-MailHC is called' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Context -ParameterFilter {
+                ($Header -eq $testMail.Header) -and
+                ($To -eq $testMail.To) -and
+                ($Bcc -eq $testMail.Bcc) -and
+                ($Priority -eq $testMail.Priority) -and
+                ($Subject -eq $testMail.Subject) -and
+                ($Attachments -like $testMail.Attachments) -and
+                ($Message -like $testMail.Message)
+            }
+        }
+    }
 }
