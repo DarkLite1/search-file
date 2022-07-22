@@ -9,6 +9,10 @@ BeforeAll {
 
     $testFolderPath = (New-Item "TestDrive:/folder" -ItemType Directory).FullName
 
+    $testFolderPath = $testFolderPath -Replace '^.{2}', (
+        '\\{0}\{1}$' -f $env:COMPUTERNAME, $testFolderPath[0]
+    )
+
     $testOutParams = @{
         FilePath = (New-Item "TestDrive:/Test.json" -ItemType File).FullName
         Encoding = 'utf8'
@@ -1023,27 +1027,27 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 Priority    = 'High'
                 Subject     = '6 files found, 3 errors'
                 Message     = "*<p>Detected <b>3 errors</b> during execution.</p>*<p>Found a total of <b>6 files</b>:</p>*
-                *<th>PC1</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<th><a href=`"\\PC1\c$\folder\a`">\\PC1\c$\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>2</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC1</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<th><a href=`"\\PC1\c$\folder\b`">\\PC1\c$\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>1</td>*
                 *<td>*.txt</td>*<td>0</td>*
-                *<th>PC2</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<th><a href=`"\\PC2\c$\folder\a`">\\PC2\c$\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC2</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<th><a href=`"\\PC2\c$\folder\b`">\\PC2\c$\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC3</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<th><a href=`"\\PC3\c$\folder\a`">\\PC3\c$\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>0</td>*
-                *<th>PC3</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<th><a href=`"\\PC3\c$\folder\b`">\\PC3\c$\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>0</td>*
@@ -1099,27 +1103,27 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                 Priority    = 'High'
                 Subject     = '6 files found, 3 errors'
                 Message     = "*<p>Detected <b>3 errors</b> during execution.</p>*<p>Found a total of <b>6 files</b>:</p>*
-                *<th>PC1</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<th><a href=`"\\PC1\c$\folder\a`">\\PC1\c$\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>2</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC1</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<th><a href=`"\\PC1\c$\folder\b`">\\PC1\c$\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>1</td>*
                 *<td>*.txt</td>*<td>0</td>*
-                *<th>PC2</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<th><a href=`"\\PC2\c$\folder\a`">\\PC2\c$\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC2</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<th><a href=`"\\PC2\c$\folder\b`">\\PC2\c$\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>1</td>*
-                *<th>PC3</th>*<th><a href=`"c:\folder\a`">c:\folder\a</a></th>*
+                *<th><a href=`"\\PC3\c$\folder\a`">\\PC3\c$\folder\a</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>0</td>*
-                *<th>PC3</th>*<th><a href=`"c:\folder\b`">c:\folder\b</a></th>*
+                *<th><a href=`"\\PC3\c$\folder\b`">\\PC3\c$\folder\b</a></th>*
                 *<td>Filter</td>*<td>Files found</td>*
                 *<td>*.pst</td>*<td>0</td>*
                 *<td>*.txt</td>*<td>0</td>*

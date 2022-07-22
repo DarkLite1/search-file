@@ -619,12 +619,22 @@ End {
                     foreach ($path in $Tasks[$i].FolderPath) {
                         "<tr>
                             <th>{0}</th>
-                            <th><a href=`"{1}`">{1}</a></th>
+                            <th>{1}</th>
                        </tr>
                        <tr>
                             <td>Filter</td>
                             <td>Files found</td>
-                        </tr>" -f $computerName, $path
+                        </tr>" -f $computerName, $(
+                            if ($path -match '^\\\\') {
+                                '<a href="{0}">{0}</a>' -f $path
+                            }
+                            else {
+                                $uncPath = $path -Replace '^.{2}', (
+                                    '\\{0}\{1}$' -f $computerName, $path[0]
+                                )
+                                '<a href="{0}">{0}</a>' -f $uncPath
+                            }
+                        )
 
                         foreach ($filter in $Tasks[$i].Filter) {
                             "<tr>
