@@ -188,8 +188,8 @@ Begin {
     }
     $getJobResult = {
         #region Verbose
-        $M = "'{0}' Get job result for Path '{1}' Filter '{2}' Recurse '{3}'" -f $completedJob.ComputerName, $completedJob.Path, 
-        $($task.Filter -join ', '), $task.Recurse
+        $M = "'{0}' Get job result for Path '{1}'" -f 
+        $completedJob.ComputerName, $completedJob.Path
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         #endregion
 
@@ -377,16 +377,25 @@ Process {
                 #endregion
 
                 #region Get job results
-                foreach ($task in $Tasks) {
-                    foreach (
-                        $completedJob in 
-                        $task.Jobs | Where-Object {
+                foreach (
+                    $completedJob in 
+                    $Tasks.Jobs | Where-Object {
                             ($_.Job.Object.State -match 'Completed|Failed')
-                        }
-                    ) {
-                        & $getJobResult
                     }
+                ) {
+                    & $getJobResult
                 }
+                
+                # foreach ($task in $Tasks) {
+                #     foreach (
+                #         $completedJob in 
+                #         $task.Jobs | Where-Object {
+                #             ($_.Job.Object.State -match 'Completed|Failed')
+                #         }
+                #     ) {
+                #         & $getJobResult
+                #     }
+                # }
                 #endregion
             }
         }
@@ -409,15 +418,22 @@ Process {
 
             $finishedJob = $runningJobs | Wait-Job -Any
 
-            foreach ($task in $Tasks) {
-                $completedJob = $task.Jobs | Where-Object {
-                    ($_.Job.Object.Id -eq $finishedJob.Id)
-                }
-                if ($completedJob) {
-                    & $getJobResult
-                    break
-                }
+            $completedJob = $Tasks.Jobs | Where-Object {
+                ($_.Job.Object.Id -eq $finishedJob.Id)
             }
+            
+            & $getJobResult
+            # $finishedJob = $runningJobs | Wait-Job -Any
+
+            # foreach ($task in $Tasks) {
+            #     $completedJob = $task.Jobs | Where-Object {
+            #         ($_.Job.Object.Id -eq $finishedJob.Id)
+            #     }
+            #     if ($completedJob) {
+            #         & $getJobResult
+            #         break
+            #     }
+            # }
         }
         #endregion
     }

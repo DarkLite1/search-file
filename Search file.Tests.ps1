@@ -1152,3 +1152,180 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         }
     }
 }
+Describe 'when matching files are found' {
+    BeforeAll {
+        Remove-Item "$testFolderPath\*" -Recurse -Force
+
+        @(
+            "$testFolderPath\A",
+            "$testFolderPath\B",
+            "$testFolderPath\C",
+            "$testFolderPath\D",
+            "$testFolderPath\E",
+            "$testFolderPath\F"
+        ) | ForEach-Object {
+            New-Item -Path $_ -ItemType Directory
+        }
+
+        $testFile = @(
+            "$testFolderPath\D\BatchAborted_0.xml",
+            "$testFolderPath\D\BatchAborted_1.xml",
+            "$testFolderPath\F\xxx_batch_0.xml",
+            "$testFolderPath\F\xxx_batch_1.xml",
+            "$testFolderPath\F\xxx_batch_2.xml",
+            "$testFolderPath\F\xxx_lab_shipment_0.xml",
+            "$testFolderPath\F\xxx_lab_shipment_1.xml",
+            "$testFolderPath\F\xxx_lab_shipment_2.xml",
+            "$testFolderPath\F\xxx_lab_shipment_3.xml"
+        ) | ForEach-Object {
+            New-Item -Path $_ -ItemType File
+        }
+
+        @{
+            MaxConcurrentJobs = 6
+            Tasks             = @(
+                @{
+                    ComputerName = $null
+                    FolderPath   = @(
+                        "$testFolderPath\A",
+                        "$testFolderPath\B"
+                    )
+                    Filter       = @('*batchaborted*')
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
+                    }
+                },
+                @{
+                    ComputerName = $null
+                    FolderPath   = @(
+                        "$testFolderPath\C",
+                        "$testFolderPath\D"
+                    )
+                    Filter       = @('*batchaborted*')
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
+                    }
+                },
+                @{
+                    ComputerName = $null
+                    FolderPath   = @(
+                        "$testFolderPath\E"
+                    )
+                    Filter       = @("*batch*", "*lab_shipment*", "*material*")
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
+                    }
+                },
+                @{
+                    ComputerName = $null
+                    FolderPath   = @(
+                        "$testFolderPath\F"
+                    )
+                    Filter       = @("*batch*", "*lab_shipment*", "*material*")
+                    Recurse      = $false
+                    SendMail     = @{
+                        To   = @('bob@contoso.com')
+                        When = 'Always'
+                    }
+                }
+            )
+        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+
+        .$testScript @testParams
+    }
+    Context 'export an Excel file' {
+        BeforeAll {
+            $testExportedExcelRows = @(
+                @{
+                    ComputerName  = $env:COMPUTERNAME
+                    Path          = "$testFolderPath\D"
+                    Filter        = '*batchaborted*'
+                    Recurse       = $false
+                    File          = $testFile[0].FullName
+                    CreationTime  = $testFile[0].CreationTime
+                    LastWriteTime = $testFile[0].LastWriteTime
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size_         = $testFile[0].Length
+                    Duration      = '00:00:*'
+                }
+                @{
+                    ComputerName  = $env:COMPUTERNAME
+                    Path          = "$testFolderPath\D"
+                    Filter        = '*batchaborted*'
+                    Recurse       = $false
+                    File          = $testFile[1].FullName
+                    CreationTime  = $testFile[1].CreationTime
+                    LastWriteTime = $testFile[1].LastWriteTime
+                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
+                    Size_         = $testFile[1].Length
+                    Duration      = '00:00:*'
+                }
+            )
+
+            $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '* - 1 - Log.xlsx'
+
+            $actual = Import-Excel -Path $testExcelLogFile.FullName -WorksheetName 'Files'
+        }
+        It 'to the log folder' {
+            $testExcelLogFile | Should -Not -BeNullOrEmpty
+        }
+        It 'with the correct total rows' {
+            $actual | Should -HaveCount $testExportedExcelRows.Count
+        }
+        It 'with the correct data in the rows' {
+            foreach ($testRow in $testExportedExcelRows) {
+                $actualRow = $actual | Where-Object {
+                    $_.File -eq $testRow.File
+                }
+                $actualRow.File | Should -Be $testRow.File
+                $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                $actualRow.Path | Should -Be $testRow.Path
+                $actualRow.Filter | Should -Be $testRow.Filter
+                $actualRow.Recurse | Should -Be $testRow.Recurse
+                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
+                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
+                $actualRow.Size | Should -Be $testRow.Size
+                $actualRow.Size_ | Should -Be $testRow.Size_
+                $actualRow.Error | Should -Be $testRow.Error
+                $actualRow.Duration | Should -BeLike $testRow.Duration
+            }
+        }
+    }
+    Context 'send a mail to the user when SendMail.When is Always' {
+        BeforeAll {
+            $testMail = @{
+                To          = 'bob@contoso.com'
+                Bcc         = $ScriptAdmin
+                Priority    = 'Normal'
+                Subject     = '3 files found'
+                Message     = "*Found a total of <b>3 files</b>*$env:COMPUTERNAME*$testFolderPath*Filter*Files found**kiwi*3*Check the attachment for details*"
+                Attachments = '* - 0 - Log.xlsx'
+            }
+        }
+        It 'Send-MailHC has the correct arguments' {
+            $mailParams.To | Should -Be $testMail.To
+            $mailParams.Bcc | Should -Be $testMail.Bcc
+            $mailParams.Subject | Should -Be $testMail.Subject
+            $mailParams.Message | Should -BeLike $testMail.Message
+            $mailParams.Attachments | Should -BeLike $testMail.Attachments
+        }
+        It 'Send-MailHC is called' {
+            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                ($To -eq $testMail.To) -and
+                ($Bcc -eq $testMail.Bcc) -and
+                ($Priority -eq $testMail.Priority) -and
+                ($Subject -eq $testMail.Subject) -and
+                ($Attachments -like $testMail.Attachments) -and
+                ($Message -like $testMail.Message)
+            }
+        }
+    } -Skip
+} -Tag test
