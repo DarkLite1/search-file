@@ -385,17 +385,6 @@ Process {
                 ) {
                     & $getJobResult
                 }
-                
-                # foreach ($task in $Tasks) {
-                #     foreach (
-                #         $completedJob in 
-                #         $task.Jobs | Where-Object {
-                #             ($_.Job.Object.State -match 'Completed|Failed')
-                #         }
-                #     ) {
-                #         & $getJobResult
-                #     }
-                # }
                 #endregion
             }
         }
@@ -423,17 +412,6 @@ Process {
             }
             
             & $getJobResult
-            # $finishedJob = $runningJobs | Wait-Job -Any
-
-            # foreach ($task in $Tasks) {
-            #     $completedJob = $task.Jobs | Where-Object {
-            #         ($_.Job.Object.Id -eq $finishedJob.Id)
-            #     }
-            #     if ($completedJob) {
-            #         & $getJobResult
-            #         break
-            #     }
-            # }
         }
         #endregion
     }
@@ -681,7 +659,8 @@ End {
                 )
                 
                 Write-Verbose 'Send mail'
-
+                Write-Verbose $mailParams.Message
+                
                 Get-ScriptRuntimeHC -Stop
                 Send-MailHC @mailParams
             }
