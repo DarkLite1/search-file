@@ -672,8 +672,9 @@ End {
                     }
                 )
                 
-                Write-Verbose 'Send mail'
-                Write-Verbose $mailParams.Message
+                $M = "Send mail`r`n- Header: {0}`r`n- To: {1} Subject: {2}" -f 
+                $mailParams.Header, $mailParams.To, $mailParams.Subject
+                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
                 
                 Get-ScriptRuntimeHC -Stop
                 Send-MailHC @mailParams
