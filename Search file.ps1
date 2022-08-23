@@ -687,7 +687,7 @@ End {
         Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"; Exit 1
     }
     Finally {
-        Get-Job | Remove-Job -Force
+        Get-Job | Remove-Job -Force -ErrorAction Ignore
         Write-EventLog @EventEndParams
     }
 }
