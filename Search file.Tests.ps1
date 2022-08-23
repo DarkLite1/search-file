@@ -794,46 +794,45 @@ Describe 'with multiple input and matching files are found' {
             }
         }
     }
-    Context 'send a mail to the user when SendMail.When is OnlyWhenFilesAreFound' {
-        It 'Send-MailHC is called only when there are matches found' {
-            Should -Invoke Send-MailHC -Exactly 2 -Scope Describe
-        }
-        It 'Send-MailHC is called with the correct arguments' {
-            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
-                ($To -eq 'marc@contoso.com') -and
-                ($Bcc -eq $ScriptAdmin) -and
-                ($Priority -eq 'Normal') -and
-                ($Subject -eq '2 files found') -and
-                ($Attachments -like '* - 1 - Log.xlsx') -and
-                ($Message -like "*Found a total of <b>2 files</b>*
-                *<th>*\folder\C`">*</th>*
-                *<td>Filter</td>*<td>Files found</td>*
-                *<td>*batchaborted*</td>*<td>0</td>*
-                *<th>*\folder\D`">*</th>*
-                *<td>Filter</td>*<td>Files found</td>*
-                *<td>*batchaborted*</td>*<td>2</td>*
-                *Check the attachment for details*"
-                )
+    Context 'and SendMail.When is OnlyWhenFilesAreFound' {
+        Context 'Send-MailHC is called' {
+            It 'only when matches are found' {
+                Should -Invoke Send-MailHC -Exactly 2 -Scope Describe
+            }
+            It 'with the correct arguments for each mail' {
+                Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($To -eq 'marc@contoso.com') -and
+                    ($Bcc -eq $ScriptAdmin) -and
+                    ($Priority -eq 'Normal') -and
+                    ($Subject -eq '2 files found') -and
+                    ($Attachments -like '* - 1 - Log.xlsx') -and
+                    ($Message -like "*Found a total of <b>2 files</b>*
+                    *<th>*\folder\D`">*</th>*
+                    *<td>Filter</td>*<td>Files found</td>*
+                    *<td>*batchaborted*</td>*<td>2</td>*
+                    *Check the attachment for details*"
+                    )
+                }
+            }
+            It 'with the correct arguments for each mail' {
+                Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
+                    ($To -eq 'jack@contoso.com') -and
+                    ($Bcc -eq $ScriptAdmin) -and
+                    ($Priority -eq 'Normal') -and
+                    ($Subject -eq '7 files found') -and
+                    ($Attachments -like '* - 3 - Log.xlsx') -and
+                    ($Message -like "*Found a total of <b>7 files</b>*
+                    *<th>*\folder\F`">*</th>*
+                    *<td>Filter</td>*<td>Files found</td>*
+                    *<td>*batch*</td>*<td>3</td>*
+                    *<td>*lab_shipment*</td>*<td>4</td>*
+                    *Check the attachment for details*"
+                    )
+                }
             }
         }
-        It 'Send-MailHC is called with the correct arguments' {
-            Should -Invoke Send-MailHC -Exactly 1 -Scope Describe -ParameterFilter {
-                ($To -eq 'jack@contoso.com') -and
-                ($Bcc -eq $ScriptAdmin) -and
-                ($Priority -eq 'Normal') -and
-                ($Subject -eq '7 files found') -and
-                ($Attachments -like '* - 3 - Log.xlsx') -and
-                ($Message -like "*Found a total of <b>7 files</b>*
-                *<th>*\folder\F`">*</th>*
-                *<td>Filter</td>*<td>Files found</td>*
-                *<td>*batch*</td>*<td>3</td>*
-                *<td>*lab_shipment*</td>*<td>4</td>*
-                *<td>*material*</td>*<td>0</td>*
-                *Check the attachment for details*"
-                )
-            }
-        }
-    } -Tag test
+        
+    }
 }
 Describe 'when no matching files are found' {
     BeforeAll {

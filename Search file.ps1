@@ -611,7 +611,7 @@ End {
                     $Tasks[$i].ComputerName
                 ) {
                     foreach ($path in $Tasks[$i].FolderPath) {
-                        "<tr>
+                        $computerPathHtml = "<tr>
                             <th>{0}</th>
                             <th>{1}</th>
                        </tr>
@@ -630,19 +630,33 @@ End {
                             }
                         )
 
-                        foreach ($filter in $Tasks[$i].Filter) {
-                            "<tr>
-                                <td>{0}</td>
-                                <td>{1}</td>
-                            </tr>" -f $filter, $(
-                                $excelSheet.Files | Where-Object {
-                                    ($_.ComputerName -eq $computerName) -and
-                                    ($_.Path -eq $path) -and
-                                    ($_.Filter -eq $filter) 
-                                } | Measure-Object | 
-                                Select-Object -ExpandProperty Count
-                            )
+                        $matchesFoundHtml = foreach (
+                            $filter in 
+                            $Tasks[$i].Filter
+                        ) {
+                            $matchesCount = $excelSheet.Files | Where-Object {
+                                ($_.ComputerName -eq $computerName) -and
+                                ($_.Path -eq $path) -and
+                                ($_.Filter -eq $filter) 
+                            } | Measure-Object |
+                            Select-Object -ExpandProperty Count
+
+                            if (
+                                ($Tasks[$i].SendMail.When -eq 'Always') -or
+                                ($matchesCount)
+                            ) {
+                                "<tr>
+                                    <td>{0}</td>
+                                    <td>{1}</td>
+                                </tr>" -f $filter, $matchesCount    
+                            }
                         }
+
+                        if ($matchesFoundHtml) {
+                            $computerPathHtml
+                            $matchesFoundHtml                            
+                        }
+
                     }
                 }
 
