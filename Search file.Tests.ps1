@@ -511,6 +511,7 @@ Describe 'when matching files are found' {
         It 'Send-MailHC has the correct arguments' {
             $mailParams.To | Should -Be $testMail.To
             $mailParams.Bcc | Should -Be $testMail.Bcc
+            $mailParams.Priority | Should -Be $testMail.Priority
             $mailParams.Subject | Should -Be $testMail.Subject
             $mailParams.Message | Should -BeLike $testMail.Message
             $mailParams.Attachments | Should -BeLike $testMail.Attachments
