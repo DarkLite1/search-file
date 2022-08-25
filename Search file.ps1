@@ -672,7 +672,7 @@ End {
                     }
                 )
                 
-                $M = "Send mail`r`n- Header: {0}`r`n- To: {1}`r`n-Subject: {2}" -f 
+                $M = "Send mail`r`n- Header:`t{0}`r`n- To:`t`t{1}`r`n- Subject:`t{2}" -f 
                 $mailParams.Header, $($mailParams.To -join ','),
                 $mailParams.Subject
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
