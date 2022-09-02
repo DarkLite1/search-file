@@ -50,7 +50,7 @@ Param (
     [Parameter(Mandatory)]
     [String]$ImportFile,
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Search file\$ScriptName",
-    [String]$ScriptAdmin = $env:POWERSHELL_SCRIPT_ADMIN
+    [String[]]$ScriptAdmin = $env:POWERSHELL_SCRIPT_ADMIN
 )
         
 Begin {
