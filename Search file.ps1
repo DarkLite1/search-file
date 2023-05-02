@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-#Requires -Modules Toolbox.HTML, Toolbox.EventLog
+#Requires -Modules Toolbox.HTML, Toolbox.EventLog, Toolbox.Remoting
 
 <#
     .SYNOPSIS
