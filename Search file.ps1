@@ -17,11 +17,11 @@
         'FolderPath'.
 
     .PARAMETER Tasks.FolderPath
-        One or more paths to a folder where to search for files matching the 
+        One or more paths to a folder where to search for files matching the
         filter.
 
     .PARAMETER Tasks.Filter
-        The filter used to find matching files. This filter is directly passed 
+        The filter used to find matching files. This filter is directly passed
         to 'Get-ChildItem -Filter'.
 
         Examples:
@@ -36,8 +36,8 @@
         List of e-mail addresses where to send the e-mail too.
 
     .PARAMETER Tasks.SendMail.When
-        When to send an e-mail. 
-        
+        When to send an e-mail.
+
         Valid options:
         - Always                : Always send an e-mail, even without matches
         - OnlyWhenFilesAreFound : Only send an e-mail when matches are found
@@ -55,7 +55,7 @@ Param (
         $env:POWERSHELL_SCRIPT_ADMIN_BACKUP
     )
 )
-        
+
 Begin {
     Function Get-JobDurationHC {
         [OutputType([TimeSpan])]
@@ -77,7 +77,7 @@ Begin {
         }
         #endregion
 
-        $M = "'{0}' job duration '{1:hh}:{1:mm}:{1:ss}:{1:fff}'" -f 
+        $M = "'{0}' job duration '{1:hh}:{1:mm}:{1:ss}:{1:fff}'" -f
         $computerName, $jobDuration
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
@@ -105,7 +105,7 @@ Begin {
         #region Get job results
         $M = "'{0}' job '{1}'" -f $computerName, $job.State
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-              
+
         $jobErrors = @()
         $receiveParams = @{
             ErrorVariable = 'jobErrors'
@@ -113,12 +113,12 @@ Begin {
         }
         $result.Result = $Job | Receive-Job @receiveParams
         #endregion
-   
+
         #region Get job errors
         foreach ($e in $jobErrors) {
             $M = "'{0}' job error '{1}'" -f $computerName, $e.ToString()
             Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
-                  
+
             $result.Errors += $e.ToString()
             $error.Remove($e)
         }
@@ -126,13 +126,13 @@ Begin {
             foreach ($e in $resultErrors) {
                 $M = "'{0}' error '{1}'" -f $computerName, $e
                 Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
-                
+
                 $result.Errors += $e
             }
         }
         #endregion
 
-        $result.Result = $result.Result | 
+        $result.Result = $result.Result |
         Select-Object -Property * -ExcludeProperty 'Error'
 
         if ((-not $result.Errors) -and (-not $result.Result.Error)) {
@@ -158,7 +158,7 @@ Begin {
         if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
             throw "Path '$Path' not found."
         }
-        
+
         foreach ($filter in $Filters) {
             try {
                 $startDate = Get-Date
@@ -169,9 +169,9 @@ Begin {
                     Duration = $null
                     Error    = $null
                 }
-                
+
                 $params = @{
-                    LiteralPath = $Path 
+                    LiteralPath = $Path
                     Recurse     = $Recurse
                     Filter      = $filter
                     File        = $true
@@ -191,7 +191,7 @@ Begin {
     }
     $getJobResult = {
         #region Verbose
-        $M = "'{0}' Get job result for Path '{1}'" -f 
+        $M = "'{0}' Get job result for Path '{1}'" -f
         $completedJob.ComputerName, $completedJob.Path
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
         #endregion
@@ -202,17 +202,17 @@ Begin {
         }
         $jobOutput = Get-JobResultsAndErrorsHC @params
 
-        $completedJob.Job.Duration = Get-JobDurationHC @params 
+        $completedJob.Job.Duration = Get-JobDurationHC @params
         #endregion
 
         #region Add job results
         $completedJob.Job.Result = $jobOutput.Result
 
-        $jobOutput.Errors | ForEach-Object { 
-            $completedJob.Job.Errors += $_ 
+        $jobOutput.Errors | ForEach-Object {
+            $completedJob.Job.Errors += $_
         }
         #endregion
-            
+
         $completedJob.Job.Object = $null
     }
 
@@ -220,10 +220,10 @@ Begin {
         Import-EventLogParamsHC -Source $ScriptName
         Write-EventLog @EventStartParams
         Get-ScriptRuntimeHC -Start
-    
+
         $error.Clear()
         Get-Job | Remove-Job -Force -EA Ignore
-        
+
         #region Logging
         try {
             $logParams = @{
@@ -242,10 +242,10 @@ Begin {
         #region Import .json file
         $M = "Import .json file '$ImportFile'"
         Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-        
+
         $file = Get-Content $ImportFile -Raw -EA Stop | ConvertFrom-Json
         #endregion
-        
+
         #region Test .json file properties
         if (-not ($Tasks = $file.Tasks)) {
             throw "Input file '$ImportFile': Property 'Tasks' not found."
@@ -259,7 +259,7 @@ Begin {
                 throw "Input file '$ImportFile': Property 'Filter' is mandatory."
             }
 
-            $task.ComputerName | Group-Object | 
+            $task.ComputerName | Group-Object |
             Where-Object { $_.Count -ge 2 } |
             ForEach-Object {
                 throw "Input file '$ImportFile': Property 'ComputerName' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
@@ -294,20 +294,21 @@ Begin {
             }
         }
 
-        if ($file.PSObject.Properties.Name -notContains 'MaxConcurrentJobs') {
+        if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
             throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
         }
-        if (-not ($file.MaxConcurrentJobs -is [int])) {
+        try {
+            $null = $MaxConcurrentJobs.ToInt16($null)
+        }
+        catch {
             throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
         }
-
-        $maxConcurrentJobs = [int]$file.MaxConcurrentJobs
         #endregion
 
         #region Add properties
         foreach ($task in $Tasks) {
             if (
-                (-not $task.ComputerName) -or 
+                (-not $task.ComputerName) -or
                 ($task.ComputerName -eq 'localhost') -or
                 ($task.ComputerName -eq "$env:COMPUTERNAME.$env:USERDNSDOMAIN")
             ) {
@@ -339,7 +340,7 @@ Begin {
         Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"
         Write-EventLog @EventEndParams; Exit 1
     }
-}       
+}
 Process {
     Try {
         #region Start jobs
@@ -350,14 +351,14 @@ Process {
                     ScriptBlock  = $getMatchingFilesHC
                     ArgumentList = $j.Path, $task.Recurse, $task.Filter
                 }
-        
-                $M = "'{0}' Start job for Path '{1}' Filter '{3}' Recurse '{2}'" -f 
+
+                $M = "'{0}' Start job for Path '{1}' Filter '{3}' Recurse '{2}'" -f
                 $j.ComputerName,
-                $invokeParams.ArgumentList[0], 
+                $invokeParams.ArgumentList[0],
                 $invokeParams.ArgumentList[1],
                 $($invokeParams.ArgumentList[2] -join ', ')
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-        
+
                 $j.Job.Object = if ($j.ComputerName -ne $env:COMPUTERNAME) {
                     $invokeParams.ComputerName = $j.ComputerName
                     $invokeParams.AsJob = $true
@@ -366,7 +367,7 @@ Process {
                 else {
                     Start-Job @invokeParams
                 }
-                
+
                 $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
                 Write-Verbose $M
                 #endregion
@@ -381,7 +382,7 @@ Process {
 
                 #region Get job results
                 foreach (
-                    $completedJob in 
+                    $completedJob in
                     $Tasks.Jobs | Where-Object {
                             ($_.Job.Object.State -match 'Completed|Failed')
                     }
@@ -413,7 +414,7 @@ Process {
             $completedJob = $Tasks.Jobs | Where-Object {
                 ($_.Job.Object.Id -eq $finishedJob.Id)
             }
-            
+
             & $getJobResult
         }
         #endregion
@@ -429,16 +430,16 @@ End {
     try {
         for ($i = 0; $i -lt $Tasks.Count; $i++) {
             #region Verbose
-            $M = "Task ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}' MailTo '{4}' MailWhen '{5}'" -f 
-            $($Tasks[$i].ComputerName -join ', '), 
-            $($Tasks[$i].FolderPath -join ', '), 
-            $($Tasks[$i].Filter -join ', '), 
+            $M = "Task ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}' MailTo '{4}' MailWhen '{5}'" -f
+            $($Tasks[$i].ComputerName -join ', '),
+            $($Tasks[$i].FolderPath -join ', '),
+            $($Tasks[$i].Filter -join ', '),
             $Tasks[$i].Recurse,
-            $($Tasks[$i].SendMail.To -join ', '), 
+            $($Tasks[$i].SendMail.To -join ', '),
             $Tasks[$i].SendMail.When
             Write-Verbose $M
             #endregion
-        
+
             $mailParams = @{
                 To        = $Tasks[$i].SendMail.To
                 Bcc       = $ScriptAdmin
@@ -493,17 +494,17 @@ End {
                         Expression = { $_.LastWriteTime }
                     },
                     @{
-                        Name       = 'Size'; 
-                        Expression = { [MATH]::Round($_.Length / 1GB, 2) } 
+                        Name       = 'Size';
+                        Expression = { [MATH]::Round($_.Length / 1GB, 2) }
                     },
                     @{
-                        Name       = 'Size_'; 
-                        Expression = { $_.Length } 
+                        Name       = 'Size_';
+                        Expression = { $_.Length }
                     },
                     @{
                         Name       = 'Duration';
-                        Expression = { 
-                            '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $r.Duration 
+                        Expression = {
+                            '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $r.Duration
                         }
                     }
                 }
@@ -513,24 +514,24 @@ End {
                 $excelParams.WorksheetName = 'Files'
                 $excelParams.TableName = 'Files'
 
-                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f 
-                $excelSheet.Files.Count, 
+                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
+                $excelSheet.Files.Count,
                 $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
-                $excelSheet.Files | 
+                $excelSheet.Files |
                 Export-Excel @excelParams -AutoNameRange -CellStyleSB {
                     Param (
                         $WorkSheet,
                         $TotalRows,
                         $LastColumn
                     )
-    
+
                     @($WorkSheet.Names['Size'].Style).ForEach( {
                             $_.NumberFormat.Format = '?\ \G\B'
                             $_.HorizontalAlignment = 'Center'
                         })
-    
+
                     @($WorkSheet.Names['Size_'].Style).ForEach( {
                             $_.NumberFormat.Format = '?\ \B'
                             $_.HorizontalAlignment = 'Center'
@@ -552,13 +553,13 @@ End {
                     Expression = { $j.Path }
                 },
                 @{
-                    Name       = 'Filter'; 
+                    Name       = 'Filter';
                     Expression = { $Tasks[$i].Filter -join ', ' }
                 },
                 @{
                     Name       = 'Duration';
-                    Expression = { 
-                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration 
+                    Expression = {
+                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration
                     }
                 },
                 @{
@@ -572,7 +573,7 @@ End {
                 $excelParams.TableName = 'Errors'
 
                 $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
-                $excelSheet.Errors.Count, 
+                $excelSheet.Errors.Count,
                 $excelParams.WorksheetName, $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
@@ -591,18 +592,18 @@ End {
                 $errorMessage = $null
 
                 #region Subject and Priority
-                $mailParams.Subject = '{0} file{1} found' -f 
+                $mailParams.Subject = '{0} file{1} found' -f
                 $excelSheet.Files.Count,
                 $(if ($excelSheet.Files.Count -ne 1) { 's' })
-                
+
                 if ($excelSheet.Errors) {
                     $mailParams.Priority = 'High'
 
-                    $mailParams.Subject += ', {0} error{1}' -f 
+                    $mailParams.Subject += ', {0} error{1}' -f
                     $excelSheet.Errors.Count,
                     $(if ($excelSheet.Errors.Count -ne 1) { 's' })
 
-                    $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f 
+                    $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
                     $excelSheet.Errors.Count,
                     $(if ($excelSheet.Errors.Count -ne 1) { 's' })
                 }
@@ -610,7 +611,7 @@ End {
 
 
                 $tableRows = foreach (
-                    $computerName in 
+                    $computerName in
                     $Tasks[$i].ComputerName
                 ) {
                     foreach ($path in $Tasks[$i].FolderPath) {
@@ -634,13 +635,13 @@ End {
                         )
 
                         $matchesFoundHtml = foreach (
-                            $filter in 
+                            $filter in
                             $Tasks[$i].Filter
                         ) {
                             $matchesCount = $excelSheet.Files | Where-Object {
                                 ($_.ComputerName -eq $computerName) -and
                                 ($_.Path -eq $path) -and
-                                ($_.Filter -eq $filter) 
+                                ($_.Filter -eq $filter)
                             } | Measure-Object |
                             Select-Object -ExpandProperty Count
 
@@ -651,13 +652,13 @@ End {
                                 "<tr>
                                     <td>{0}</td>
                                     <td>{1}</td>
-                                </tr>" -f $filter, $matchesCount    
+                                </tr>" -f $filter, $matchesCount
                             }
                         }
 
                         if ($matchesFoundHtml) {
                             $computerPathHtml
-                            $matchesFoundHtml                            
+                            $matchesFoundHtml
                         }
 
                     }
@@ -674,12 +675,12 @@ End {
                         '<p><i>* Check the attachment for details</i></p>'
                     }
                 )
-                
-                $M = "Send mail`r`n- Header:`t{0}`r`n- To:`t`t{1}`r`n- Subject:`t{2}" -f 
+
+                $M = "Send mail`r`n- Header:`t{0}`r`n- To:`t`t{1}`r`n- Subject:`t{2}" -f
                 $mailParams.Header, $($mailParams.To -join ','),
                 $mailParams.Subject
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
-                
+
                 Get-ScriptRuntimeHC -Stop
                 Send-MailHC @mailParams
             }

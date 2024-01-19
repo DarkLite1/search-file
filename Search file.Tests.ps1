@@ -31,14 +31,14 @@ BeforeAll {
 }
 Describe 'the mandatory parameters are' {
     It '<_>' -ForEach 'ScriptName', 'ImportFile' {
-        (Get-Command $testScript).Parameters[$_].Attributes.Mandatory | 
+        (Get-Command $testScript).Parameters[$_].Attributes.Mandatory |
         Should -BeTrue
     }
 }
 Describe 'send an e-mail to the admin when' {
     BeforeAll {
         $MailAdminParams = {
-            ($To -eq $testParams.ScriptAdmin) -and ($Priority -eq 'High') -and 
+            ($To -eq $testParams.ScriptAdmin) -and ($Priority -eq 'High') -and
             ($Subject -eq 'FAILURE')
         }
     }
@@ -49,7 +49,7 @@ Describe 'send an e-mail to the admin when' {
         .$testScript @testNewParams
 
         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-            (&$MailAdminParams) -and 
+            (&$MailAdminParams) -and
             ($Message -like '*Failed creating the log folder*')
         }
     }
@@ -57,11 +57,11 @@ Describe 'send an e-mail to the admin when' {
         It 'is not found' {
             $testNewParams = $testParams.clone()
             $testNewParams.ImportFile = 'nonExisting.json'
-    
+
             .$testScript @testNewParams
-    
+
             Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                (&$MailAdminParams) -and 
+                (&$MailAdminParams) -and
                 ($Message -like "Cannot find path*nonExisting.json*")
             }
             Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -85,12 +85,12 @@ Describe 'send an e-mail to the admin when' {
                                 }
                             }
                         )
-                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
                     .$testScript @testParams
-                            
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and 
+                        (&$MailAdminParams) -and
                         ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' not found*")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -112,10 +112,10 @@ Describe 'send an e-mail to the admin when' {
                                 }
                             }
                         )
-                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                    
+                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                     .$testScript @testParams
-            
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
                         ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
@@ -129,12 +129,12 @@ Describe 'send an e-mail to the admin when' {
                 It 'is missing' {
                     @{
                         MaxConcurrentJobs = 6
-                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                    
+                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and 
+                        (&$MailAdminParams) -and
                         ($Message -like "*Property 'Tasks' not found.")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -156,12 +156,12 @@ Describe 'send an e-mail to the admin when' {
                                 }
                             }
                         )
-                    } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                    
+                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                     .$testScript @testParams
-                    
+
                     Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and 
+                        (&$MailAdminParams) -and
                         ($Message -like "*Property 'ComputerName' contains the duplicate value 'PC1'. Duplicate values are not allowed.")
                     }
                     Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -184,12 +184,12 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-                        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
+                            (&$MailAdminParams) -and
                             ($Message -like "*Property 'Filter' is mandatory.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -211,12 +211,12 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-                        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
+                            (&$MailAdminParams) -and
                             ($Message -like "*Property 'Filter' contains the duplicate value '*a*'. Duplicate values are not allowed.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -240,12 +240,12 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-                        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
+                            (&$MailAdminParams) -and
                             ($Message -like "*Property 'Recurse' is mandatory.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -267,12 +267,12 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-                        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
+                            (&$MailAdminParams) -and
                             ($Message -like "*The value 'a' in 'Recurse' is not a true false value.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -296,12 +296,12 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-                        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
+                            (&$MailAdminParams) -and
                             ($Message -like "*Property 'FolderPath' is mandatory.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -325,12 +325,12 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                        
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-                        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and 
+                            (&$MailAdminParams) -and
                             ($Message -like "*Property 'FolderPath' contains the duplicate value '$testFolderPath'. Duplicate values are not allowed.")
                         }
                         Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
@@ -354,10 +354,10 @@ Describe 'send an e-mail to the admin when' {
                                     # }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                    
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*Property 'SendMail' is mandatory.")
                         }
@@ -380,10 +380,10 @@ Describe 'send an e-mail to the admin when' {
                                     }
                                 }
                             )
-                        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-                    
+                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
                         .$testScript @testParams
-        
+
                         Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used.")
                         }
@@ -422,7 +422,7 @@ Describe 'when matching files are found' {
                     }
                 }
             )
-        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
     }
@@ -437,7 +437,7 @@ Describe 'when matching files are found' {
                     File          = $testFile[0].FullName
                     CreationTime  = $testFile[0].CreationTime
                     LastWriteTime = $testFile[0].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[0].Length
                     Duration      = '00:00:*'
                 }
@@ -449,7 +449,7 @@ Describe 'when matching files are found' {
                     File          = $testFile[1].FullName
                     CreationTime  = $testFile[1].CreationTime
                     LastWriteTime = $testFile[1].LastWriteTime
-                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2)
                     Size_         = $testFile[1].Length
                     Duration      = '00:00:*'
                 }
@@ -461,7 +461,7 @@ Describe 'when matching files are found' {
                     File          = $testFile[2].FullName
                     CreationTime  = $testFile[2].CreationTime
                     LastWriteTime = $testFile[2].LastWriteTime
-                    Size          = [MATH]::Round($testFile[2].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[2].Length / 1GB, 2)
                     Size_         = $testFile[2].Length
                     Duration      = '00:00:*'
                 }
@@ -487,9 +487,9 @@ Describe 'when matching files are found' {
                 $actualRow.Path | Should -Be $testRow.Path
                 $actualRow.Filter | Should -Be $testRow.Filter
                 $actualRow.Recurse | Should -Be $testRow.Recurse
-                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') |
                 Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
-                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') |
                 Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
                 $actualRow.Size | Should -Be $testRow.Size
                 $actualRow.Size_ | Should -Be $testRow.Size_
@@ -612,7 +612,7 @@ Describe 'with multiple input and matching files are found' {
                     }
                 }
             )
-        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
     }
@@ -627,7 +627,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[0].FullName
                     CreationTime  = $testFile[0].CreationTime
                     LastWriteTime = $testFile[0].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[0].Length
                     Duration      = '00:00:*'
                 }
@@ -639,7 +639,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[1].FullName
                     CreationTime  = $testFile[1].CreationTime
                     LastWriteTime = $testFile[1].LastWriteTime
-                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[1].Length / 1GB, 2)
                     Size_         = $testFile[1].Length
                     Duration      = '00:00:*'
                 }
@@ -665,9 +665,9 @@ Describe 'with multiple input and matching files are found' {
                 $actualRow.Path | Should -Be $testRow.Path
                 $actualRow.Filter | Should -Be $testRow.Filter
                 $actualRow.Recurse | Should -Be $testRow.Recurse
-                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') |
                 Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
-                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') |
                 Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
                 $actualRow.Size | Should -Be $testRow.Size
                 $actualRow.Size_ | Should -Be $testRow.Size_
@@ -687,7 +687,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[2].FullName
                     CreationTime  = $testFile[2].CreationTime
                     LastWriteTime = $testFile[2].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[2].Length
                     Duration      = '00:00:*'
                 }
@@ -699,7 +699,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[3].FullName
                     CreationTime  = $testFile[3].CreationTime
                     LastWriteTime = $testFile[3].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[3].Length
                     Duration      = '00:00:*'
                 }
@@ -711,7 +711,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[4].FullName
                     CreationTime  = $testFile[4].CreationTime
                     LastWriteTime = $testFile[4].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[4].Length
                     Duration      = '00:00:*'
                 }
@@ -723,7 +723,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[5].FullName
                     CreationTime  = $testFile[5].CreationTime
                     LastWriteTime = $testFile[5].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[5].Length
                     Duration      = '00:00:*'
                 }
@@ -735,7 +735,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[6].FullName
                     CreationTime  = $testFile[6].CreationTime
                     LastWriteTime = $testFile[6].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[6].Length
                     Duration      = '00:00:*'
                 }
@@ -747,7 +747,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[7].FullName
                     CreationTime  = $testFile[7].CreationTime
                     LastWriteTime = $testFile[7].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[7].Length
                     Duration      = '00:00:*'
                 }
@@ -759,7 +759,7 @@ Describe 'with multiple input and matching files are found' {
                     File          = $testFile[8].FullName
                     CreationTime  = $testFile[8].CreationTime
                     LastWriteTime = $testFile[8].LastWriteTime
-                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                    Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                     Size_         = $testFile[8].Length
                     Duration      = '00:00:*'
                 }
@@ -785,9 +785,9 @@ Describe 'with multiple input and matching files are found' {
                 $actualRow.Path | Should -Be $testRow.Path
                 $actualRow.Filter | Should -Be $testRow.Filter
                 $actualRow.Recurse | Should -Be $testRow.Recurse
-                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') |
                 Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
-                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') |
                 Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
                 $actualRow.Size | Should -Be $testRow.Size
                 $actualRow.Size_ | Should -Be $testRow.Size_
@@ -833,7 +833,7 @@ Describe 'with multiple input and matching files are found' {
                 }
             }
         }
-        
+
     }
 }
 Describe 'when no matching files are found' {
@@ -862,7 +862,7 @@ Describe 'when no matching files are found' {
                     }
                 }
             )
-        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
     }
@@ -913,7 +913,7 @@ Describe 'when no matching files are found' {
                     }
                 }
             )
-        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
 
@@ -923,7 +923,7 @@ Describe 'when no matching files are found' {
 Describe 'when an error happens while searching for files' {
     BeforeAll {
         Mock Start-Job {
-            & $realCmdLet.StartJob -Scriptblock { 
+            & $realCmdLet.StartJob -Scriptblock {
                 throw 'oops'
             }
         }
@@ -942,7 +942,7 @@ Describe 'when an error happens while searching for files' {
                     }
                 }
             )
-        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
     }
@@ -1029,7 +1029,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
         }
         Mock Start-Job
         Mock Invoke-Command {
-            & $realCmdLet.InvokeCommand -Scriptblock { 
+            & $realCmdLet.InvokeCommand -Scriptblock {
                 [PSCustomObject]@{
                     Filter   = '*.pst'
                     Files    = @(
@@ -1047,13 +1047,13 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     Duration = ($using:testDate).AddSeconds(3) - $using:testDate
                     Error    = $null
                 }
-            } -AsJob -ComputerName $env:COMPUTERNAME 
+            } -AsJob -ComputerName $env:COMPUTERNAME
         } -ParameterFilter {
             ($ComputerName -eq 'PC1') -and
             ($ArgumentList[0] -eq 'c:\folder\a')
         }
         Mock Invoke-Command {
-            & $realCmdLet.InvokeCommand -Scriptblock { 
+            & $realCmdLet.InvokeCommand -Scriptblock {
                 [PSCustomObject]@{
                     Filter   = '*.pst'
                     Files    = @(
@@ -1074,7 +1074,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             ($ArgumentList[0] -eq 'c:\folder\b')
         }
         Mock Invoke-Command {
-            & $realCmdLet.InvokeCommand -Scriptblock { 
+            & $realCmdLet.InvokeCommand -Scriptblock {
                 [PSCustomObject]@{
                     Filter   = '*.pst'
                     Files    = @()
@@ -1095,7 +1095,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             ($ArgumentList[0] -eq 'c:\folder\a')
         }
         Mock Invoke-Command {
-            & $realCmdLet.InvokeCommand -Scriptblock { 
+            & $realCmdLet.InvokeCommand -Scriptblock {
                 [PSCustomObject]@{
                     Filter   = '*.pst'
                     Files    = @()
@@ -1116,7 +1116,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             ($ArgumentList[0] -eq 'c:\folder\b')
         }
         Mock Invoke-Command {
-            & $realCmdLet.InvokeCommand -Scriptblock { 
+            & $realCmdLet.InvokeCommand -Scriptblock {
                 throw 'Oops2'
             } -AsJob -ComputerName $env:COMPUTERNAME
         } -ParameterFilter {
@@ -1124,7 +1124,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
             ($ArgumentList[0] -eq 'c:\folder\a')
         }
         Mock Invoke-Command {
-            & $realCmdLet.InvokeCommand -Scriptblock { 
+            & $realCmdLet.InvokeCommand -Scriptblock {
                 Start-Sleep -Seconds 1
                 Write-Error 'Oops3'
             } -AsJob -ComputerName $env:COMPUTERNAME
@@ -1147,13 +1147,13 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     }
                 }
             )
-        } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
+        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
     }
     Context 'Invoke-Command is called' {
         It 'for each computer and each path' {
-            Should -Invoke Invoke-Command -Exactly 6 -Scope Describe 
+            Should -Invoke Invoke-Command -Exactly 6 -Scope Describe
         }
         It 'with the correct arguments' {
             Should -Invoke Invoke-Command -Exactly 6 -Scope Describe -ParameterFilter {
@@ -1180,7 +1180,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         File          = $testFile[0].FullName
                         CreationTime  = $testFile[0].CreationTime
                         LastWriteTime = $testFile[0].LastWriteTime
-                        Size          = [MATH]::Round($testFile[0].Length / 1GB, 2) 
+                        Size          = [MATH]::Round($testFile[0].Length / 1GB, 2)
                         Size_         = $testFile[0].Length
                         Duration      = '00:00:02:000'
                     }
@@ -1192,7 +1192,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         File          = $testFile[1].FullName
                         CreationTime  = $testFile[1].CreationTime
                         LastWriteTime = $testFile[1].LastWriteTime
-                        Size          = [MATH]::Round($testFile[1].Length / 1GB, 2) 
+                        Size          = [MATH]::Round($testFile[1].Length / 1GB, 2)
                         Size_         = $testFile[1].Length
                         Duration      = '00:00:02:000'
                     }
@@ -1204,7 +1204,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         File          = $testFile[2].FullName
                         CreationTime  = $testFile[2].CreationTime
                         LastWriteTime = $testFile[2].LastWriteTime
-                        Size          = [MATH]::Round($testFile[2].Length / 1GB, 2) 
+                        Size          = [MATH]::Round($testFile[2].Length / 1GB, 2)
                         Size_         = $testFile[2].Length
                         Duration      = '00:00:03:000'
                     }
@@ -1216,7 +1216,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         File          = $testFile[3].FullName
                         CreationTime  = $testFile[3].CreationTime
                         LastWriteTime = $testFile[3].LastWriteTime
-                        Size          = [MATH]::Round($testFile[3].Length / 1GB, 2) 
+                        Size          = [MATH]::Round($testFile[3].Length / 1GB, 2)
                         Size_         = $testFile[3].Length
                         Duration      = '00:00:01:000'
                     }
@@ -1228,7 +1228,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         File          = $testFile[4].FullName
                         CreationTime  = $testFile[4].CreationTime
                         LastWriteTime = $testFile[4].LastWriteTime
-                        Size          = [MATH]::Round($testFile[4].Length / 1GB, 2) 
+                        Size          = [MATH]::Round($testFile[4].Length / 1GB, 2)
                         Size_         = $testFile[4].Length
                         Duration      = '00:03:00:000'
                     }
@@ -1240,7 +1240,7 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         File          = $testFile[5].FullName
                         CreationTime  = $testFile[5].CreationTime
                         LastWriteTime = $testFile[5].LastWriteTime
-                        Size          = [MATH]::Round($testFile[5].Length / 1GB, 2) 
+                        Size          = [MATH]::Round($testFile[5].Length / 1GB, 2)
                         Size_         = $testFile[5].Length
                         Duration      = '00:00:00:300'
                     }
@@ -1266,9 +1266,9 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                     $actualRow.Path | Should -Be $testRow.Path
                     $actualRow.Filter | Should -Be $testRow.Filter
                     $actualRow.Recurse | Should -Be $testRow.Recurse
-                    $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') | 
+                    $actualRow.CreationTime.ToString('yyyyMMdd HHmmss') |
                     Should -Be $testRow.CreationTime.ToString('yyyyMMdd HHmmss')
-                    $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') | 
+                    $actualRow.LastWriteTime.ToString('yyyyMMdd HHmmss') |
                     Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd HHmmss')
                     $actualRow.Size | Should -Be $testRow.Size
                     $actualRow.Size_ | Should -Be $testRow.Size_
@@ -1401,8 +1401,8 @@ Describe 'with multiple inputs in the input file and matching files are found' {
                         }
                     }
                 )
-            } | ConvertTo-Json -Depth 3 | Out-File @testOutParams
-    
+            } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+
             .$testScript @testParams
 
             $testMail = @{
