@@ -305,7 +305,7 @@ Begin {
         }
         #endregion
 
-        #region Add properties
+        #region Convert .json file
         foreach ($task in $Tasks) {
             if (
                 (-not $task.ComputerName) -or
@@ -315,6 +315,7 @@ Begin {
                 $task.ComputerName = $env:COMPUTERNAME
             }
 
+            #region Add properties
             $task | Add-Member -NotePropertyMembers @{
                 Jobs = foreach ($computerName in $task.ComputerName) {
                     foreach ($path in $task.FolderPath) {
@@ -331,6 +332,7 @@ Begin {
                     }
                 }
             }
+            #endregion
         }
         #endregion
     }
