@@ -405,6 +405,7 @@ Process {
                     }
                 ) {
                     & $getJobResult
+                    $completedJob.Session | Remove-PSSession -ErrorAction Ignore
                 }
                 #endregion
             }
@@ -433,6 +434,7 @@ Process {
             }
 
             & $getJobResult
+            $completedJob.Session | Remove-PSSession -ErrorAction Ignore
         }
         #endregion
     }
