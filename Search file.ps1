@@ -369,9 +369,18 @@ Process {
                     Start-Job @invokeParams
                 }
                 else {
-                    $invokeParams.ComputerName = $j.ComputerName
-                    $invokeParams.AsJob = $true
-                    Invoke-Command @invokeParams
+                    try {
+                        $j.Session = New-PSSessionHC -ComputerName $j.ComputerName
+                        $invokeParams += @{
+                            Session = $j.Session
+                            AsJob   = $true
+                        }
+                        Invoke-Command @invokeParams
+                    }
+                    catch {
+                        Write-Warning "Failed creating a session to '$($j.ComputerName)': $_"
+                        Continue
+                    }
                 }
 
                 $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
@@ -383,14 +392,16 @@ Process {
                     Name       = $Tasks.Jobs.Job.Object | Where-Object { $_ }
                     MaxThreads = $maxConcurrentJobs
                 }
-                Wait-MaxRunningJobsHC @waitParams
+                if ($waitParams.Name) {
+                    Wait-MaxRunningJobsHC @waitParams
+                }
                 #endregion
 
                 #region Get job results
                 foreach (
                     $completedJob in
                     $Tasks.Jobs | Where-Object {
-                            ($_.Job.Object.State -match 'Completed|Failed')
+                        $_.Job.Object.State -match 'Completed|Failed'
                     }
                 ) {
                     & $getJobResult
