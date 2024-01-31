@@ -379,6 +379,9 @@ Process {
                     }
                     catch {
                         Write-Warning "Failed creating a session to '$($j.ComputerName)': $_"
+
+                        $j.Job.Errors += $_
+                        $error.RemoveAt(0)
                         Continue
                     }
                 }
