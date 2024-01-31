@@ -307,6 +307,7 @@ Begin {
 
         #region Convert .json file
         foreach ($task in $Tasks) {
+            #region Set ComputerName if there is none
             if (
                 (-not $task.ComputerName) -or
                 ($task.ComputerName -eq 'localhost') -or
@@ -314,6 +315,7 @@ Begin {
             ) {
                 $task.ComputerName = $env:COMPUTERNAME
             }
+            #endregion
 
             #region Add properties
             $task | Add-Member -NotePropertyMembers @{
@@ -328,6 +330,7 @@ Begin {
                                 Result   = $null
                                 Errors   = @()
                             }
+                            Session      = $null
                         }
                     }
                 }
@@ -354,20 +357,21 @@ Process {
                     ArgumentList = $j.Path, $task.Recurse, $task.Filter
                 }
 
-                $M = "'{0}' Start job for Path '{1}' Filter '{3}' Recurse '{2}'" -f
-                $j.ComputerName,
-                $invokeParams.ArgumentList[0],
+                $M = "'{0}' Start job with Path '{1}' Filter '{3}' Recurse '{2}'" -f
+                $j.ComputerName, $invokeParams.ArgumentList[0],
                 $invokeParams.ArgumentList[1],
                 $($invokeParams.ArgumentList[2] -join ', ')
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
-                $j.Job.Object = if ($j.ComputerName -ne $env:COMPUTERNAME) {
+                $j.Job.Object = if (
+                    $j.ComputerName -eq $env:COMPUTERNAME
+                ) {
+                    Start-Job @invokeParams
+                }
+                else {
                     $invokeParams.ComputerName = $j.ComputerName
                     $invokeParams.AsJob = $true
                     Invoke-Command @invokeParams
-                }
-                else {
-                    Start-Job @invokeParams
                 }
 
                 $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
