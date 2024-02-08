@@ -26,8 +26,8 @@ BeforeAll {
         ScriptAdmin = 'admin@contoso.com'
     }
 
-    Mock New-PSSessionHC {
-        New-PSSession -ComputerName $env:COMPUTERNAME
+    Mock Get-PowerShellConnectableEndpointNameHC {
+        'PowerShell.Version.X'
     }
     Mock Send-MailHC
     Mock Write-EventLog
@@ -1067,9 +1067,9 @@ Describe 'for remote computers' {
 
         .$testScript @testParams
     }
-    Context 'call New-PSSessionHC for each ComputerName and each FolderPath' {
+    Context 'call Get-PowerShellConnectableEndpointNameHC for each ComputerName and each FolderPath' {
         It "<_>" -ForEach @('PC1', 'PC2') {
-            Should -Invoke New-PSSessionHC -Scope Describe -Times 2 -Exactly -ParameterFilter {
+            Should -Invoke Get-PowerShellConnectableEndpointNameHC -Scope Describe -Times 2 -Exactly -ParameterFilter {
                 $ComputerName -eq $_
             }
         }

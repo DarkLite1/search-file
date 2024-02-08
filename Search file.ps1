@@ -330,7 +330,6 @@ Begin {
                                 Result   = $null
                                 Errors   = @()
                             }
-                            Session      = $null
                         }
                     }
                 }
@@ -363,27 +362,30 @@ Process {
                 $($invokeParams.ArgumentList[2] -join ', ')
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
 
+                $computerName = $j.ComputerName
+
                 $j.Job.Object = if (
-                    $j.ComputerName -eq $env:COMPUTERNAME
+                    $computerName -eq $env:COMPUTERNAME
                 ) {
                     Start-Job @invokeParams
                 }
                 else {
                     try {
-                        $sessionParams = @{
-                            ComputerName = $j.ComputerName
+                        $getEndpointParams = @{
+                            ComputerName = $computerName
                             ScriptName   = $ScriptName
+                            ErrorAction  = 'Stop'
                         }
-                        $j.Session = New-PSSessionHC @sessionParams
 
                         $invokeParams += @{
-                            Session = $j.Session
-                            AsJob   = $true
+                            ConfigurationName = Get-PowerShellConnectableEndpointNameHC @getEndpointParams
+                            ComputerName      = $computerName
+                            AsJob             = $true
                         }
                         Invoke-Command @invokeParams
                     }
                     catch {
-                        Write-Warning "Failed creating a session to '$($j.ComputerName)': $_"
+                        Write-Warning "Failed connecting to '$computerName': $_"
 
                         $j.Job.Errors += $_
                         $error.RemoveAt(0)
@@ -413,7 +415,6 @@ Process {
                     }
                 ) {
                     & $getJobResult
-                    $completedJob.Session | Remove-PSSession -ErrorAction Ignore
                 }
                 #endregion
             }
@@ -442,7 +443,6 @@ Process {
             }
 
             & $getJobResult
-            $completedJob.Session | Remove-PSSession -ErrorAction Ignore
         }
         #endregion
     }
