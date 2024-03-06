@@ -26,14 +26,6 @@ BeforeAll {
         ScriptAdmin = 'admin@contoso.com'
     }
 
-    $testLatestPSSessionConfiguration = Get-PSSessionConfiguration |
-    Sort-Object -Property 'Name' -Descending |
-    Select-Object -ExpandProperty 'Name' -First 1
-
-    Mock Get-PowerShellConnectableEndpointNameHC {
-        $testLatestPSSessionConfiguration
-    }
-
     Mock Send-MailHC
     Mock Write-EventLog
 }
@@ -1071,13 +1063,6 @@ Describe 'for remote computers' {
         } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
 
         .$testScript @testParams
-    }
-    Context 'call Get-PowerShellConnectableEndpointNameHC for each ComputerName and each FolderPath' {
-        It "<_>" -ForEach @('PC1', 'PC2') {
-            Should -Invoke Get-PowerShellConnectableEndpointNameHC -Scope Describe -Times 2 -Exactly -ParameterFilter {
-                $ComputerName -eq $_
-            }
-        }
     }
     Context 'call Invoke-Command for each FolderPath and each ComputerName' {
         It "<_>" -ForEach @('c:\folder\a', 'c:\folder\b') {

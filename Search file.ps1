@@ -41,6 +41,10 @@
         Valid options:
         - Always                : Always send an e-mail, even without matches
         - OnlyWhenFilesAreFound : Only send an e-mail when matches are found
+
+    .PARAMETER PSSessionConfiguration
+        The version of PowerShell on the remote endpoint as returned by
+        Get-PSSessionConfiguration.
 #>
 
 [CmdLetBinding()]
@@ -49,6 +53,7 @@ Param (
     [string]$ScriptName,
     [Parameter(Mandatory)]
     [String]$ImportFile,
+    [String]$PSSessionConfiguration = 'PowerShell.7',
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Search file\$ScriptName",
     [String[]]$ScriptAdmin = @(
         $env:POWERSHELL_SCRIPT_ADMIN,
@@ -370,27 +375,12 @@ Process {
                     Start-Job @invokeParams
                 }
                 else {
-                    try {
-                        $getEndpointParams = @{
-                            ComputerName = $computerName
-                            ScriptName   = $ScriptName
-                            ErrorAction  = 'Stop'
-                        }
-
-                        $invokeParams += @{
-                            ConfigurationName = Get-PowerShellConnectableEndpointNameHC @getEndpointParams
-                            ComputerName      = $computerName
-                            AsJob             = $true
-                        }
-                        Invoke-Command @invokeParams
+                    $invokeParams += @{
+                        ConfigurationName = $PSSessionConfiguration
+                        ComputerName      = $computerName
+                        AsJob             = $true
                     }
-                    catch {
-                        Write-Warning "Failed connecting to '$computerName': $_"
-
-                        $j.Job.Errors += $_
-                        $error.RemoveAt(0)
-                        Continue
-                    }
+                    Invoke-Command @invokeParams
                 }
 
                 $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
@@ -399,12 +389,10 @@ Process {
 
                 #region Wait for max running jobs
                 $waitParams = @{
-                    Name       = $Tasks.Jobs.Job.Object | Where-Object { $_ }
+                    Job        = $Tasks.Jobs.Job.Object | Where-Object { $_ }
                     MaxThreads = $maxConcurrentJobs
                 }
-                if ($waitParams.Name) {
-                    Wait-MaxRunningJobsHC @waitParams
-                }
+                Wait-MaxRunningJobsHC @waitParams
                 #endregion
 
                 #region Get job results
