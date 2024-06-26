@@ -4,7 +4,8 @@
 BeforeAll {
     $testScript = $PSCommandPath.Replace('.Tests.ps1', '.ps1')
     $testParams = @{
-        Path    = New-Item 'TestDrive:/f' -ItemType Directory
+        Id      = 1
+        Path    = (New-Item 'TestDrive:/f' -ItemType Directory).FullName
         Filters = @('*.txt')
         Recurse = $false
     }
@@ -50,6 +51,15 @@ Describe 'return an object' {
     }
     Context 'when files are found' {
         Context 'with property' {
+            It 'Id' {
+                $actual[0].Id | Should -Be $testNewParams.Id
+            }
+            It 'ComputerName' {
+                $actual[0].ComputerName | Should -Be $env:COMPUTERNAME
+            }
+            It 'Path' {
+                $actual[0].Path | Should -Be $testNewParams.Path
+            }
             It 'Files' {
                 $expected = $testFiles.where(
                     { $_.extension -eq '.txt' }
@@ -65,7 +75,7 @@ Describe 'return an object' {
                 $actual[0].Filter | Should -Be $testNewParams.Filters[0]
             }
             It 'Recurse' {
-                $actual[0].Recurse | Should -BeN $testNewParams.Recurse
+                $actual[0].Recurse | Should -Be $testNewParams.Recurse
             }
             It 'StartTime' {
                 $actual[0].StartTime | Should -BeOfType 'System.DateTime'
@@ -80,6 +90,15 @@ Describe 'return an object' {
     }
     Context 'when no files are found' {
         Context 'with property' {
+            It 'Id' {
+                $actual[1].Id | Should -Be $testNewParams.Id
+            }
+            It 'ComputerName' {
+                $actual[1].ComputerName | Should -Be $env:COMPUTERNAME
+            }
+            It 'Path' {
+                $actual[1].Path | Should -Be $testNewParams.Path
+            }
             It 'Files' {
                 $actual[1].Files | Should -BeNullOrEmpty
             }
@@ -87,7 +106,7 @@ Describe 'return an object' {
                 $actual[1].Filter | Should -Be $testNewParams.Filters[1]
             }
             It 'Recurse' {
-                $actual[1].Recurse | Should -BeN $testNewParams.Recurse
+                $actual[1].Recurse | Should -Be $testNewParams.Recurse
             }
             It 'StartTime' {
                 $actual[1].StartTime | Should -BeOfType 'System.DateTime'
@@ -102,6 +121,15 @@ Describe 'return an object' {
     }
     Context 'when Get-ChildItem fails' {
         Context 'with property' {
+            It 'Id' {
+                $actual[2].Id | Should -Be $testNewParams.Id
+            }
+            It 'ComputerName' {
+                $actual[2].ComputerName | Should -Be $env:COMPUTERNAME
+            }
+            It 'Path' {
+                $actual[2].Path | Should -Be $testNewParams.Path
+            }
             It 'Files' {
                 $actual[2].Files | Should -BeNullOrEmpty
             }
@@ -109,7 +137,7 @@ Describe 'return an object' {
                 $actual[2].Filter | Should -Be $testNewParams.Filters[2]
             }
             It 'Recurse' {
-                $actual[2].Recurse | Should -BeN $testNewParams.Recurse
+                $actual[2].Recurse | Should -Be $testNewParams.Recurse
             }
             It 'StartTime' {
                 $actual[2].StartTime | Should -BeOfType 'System.DateTime'

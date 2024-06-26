@@ -164,6 +164,8 @@ Begin {
         #endregion
 
         #region Convert .json file
+        $jobId = 0
+
         foreach ($task in $Tasks) {
             #region Set ComputerName if there is none
             if (
@@ -176,18 +178,27 @@ Begin {
             #endregion
 
             #region Add properties
-            $task | Add-Member -NotePropertyMembers @{
-                Jobs = foreach ($computerName in $task.ComputerName) {
-                    foreach ($path in $task.FolderPath) {
-                        [PSCustomObject]@{
-                            ComputerName = $computerName
-                            Path         = $path
-                            Job          = @{
-                                Object   = $null
-                                Duration = $null
-                                Result   = $null
-                                Errors   = @()
-                            }
+            $task | Add-Member -NotePropertyMembers {
+                jobId = @()
+            }
+            #endregion
+
+            #region Create tasks to execute
+            $tasksToExecute = foreach ($computerName in $task.ComputerName) {
+                foreach ($path in $task.FolderPath) {
+                    $jobId++
+
+                    $task.jobId += $jobId
+
+                    [PSCustomObject]@{
+                        JobId        = $jobId
+                        ComputerName = $computerName
+                        Path         = $path
+                        Filter       = $task.Filter
+                        Recurse      = $task.Recurse
+                        Job          = @{
+                            Results = @()
+                            Errors  = @()
                         }
                     }
                 }
