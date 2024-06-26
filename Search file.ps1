@@ -106,9 +106,7 @@ Begin {
                 throw "Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
             }
 
-            if (-not ($Tasks = $file.Tasks)) {
-                throw "Input file '$ImportFile': Property 'Tasks' not found."
-            }
+            $Tasks = $file.Tasks
 
             foreach ($task in $Tasks) {
                 @(
