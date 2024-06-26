@@ -2,16 +2,22 @@
 #Requires -Modules Pester
 
 BeforeAll {
-    $realCmdLet = @{
-        StartJob      = Get-Command Start-Job
-        InvokeCommand = Get-Command Invoke-Command
+    $testInputFile = @{
+        MaxConcurrentJobs = 1
+        Tasks             = @(
+            @{
+                ComputerName = @('PC1')
+                FolderPath   = @((New-Item "TestDrive:/folder" -ItemType Directory).FullName)
+                Filter       = @('*.txt')
+                Recurse      = $false
+                SendMail     = @{
+                    Header = $null
+                    To     = 'bob@contoso.com'
+                    When   = 'Always'
+                }
+            }
+        )
     }
-
-    $testFolderPath = (New-Item "TestDrive:/folder" -ItemType Directory).FullName
-
-    $testFolderPath = $testFolderPath -Replace '^.{2}', (
-        '\\{0}\{1}$' -f $env:COMPUTERNAME, $testFolderPath[0]
-    )
 
     $testOutParams = @{
         FilePath = (New-Item "TestDrive:/Test.json" -ItemType File).FullName
@@ -26,6 +32,7 @@ BeforeAll {
         ScriptAdmin = 'admin@contoso.com'
     }
 
+    Mock Invoke-Command
     Mock Send-MailHC
     Mock Write-EventLog
 }
@@ -69,328 +76,164 @@ Describe 'send an e-mail to the admin when' {
             }
         }
         Context 'property' {
-            Context 'MaxConcurrentJobs' {
-                It 'is missing' {
-                    @{
-                        # MaxConcurrentJobs = 6
-                        Tasks = @(
-                            @{
-                                ComputerName = $null
-                                FolderPath   = @($testFolderPath)
-                                Filter       = '*kiwi*'
-                                Recurse      = $false
-                                SendMail     = @{
-                                    To   = @('bob@contoso.com')
-                                    When = 'Always'
-                                }
-                            }
-                        )
-                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+            It '<_> not found' -ForEach @(
+                'MaxConcurrentJobs', 'Tasks'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.$_ = $null
 
-                    .$testScript @testParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' not found*")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                    (&$MailAdminParams) -and
+                    ($Message -like "*$ImportFile*Property '$_' not found*")
                 }
-                It 'is not a number' {
-                    @{
-                        MaxConcurrentJobs = 'a'
-                        Tasks             = @(
-                            @{
-                                ComputerName = $null
-                                FolderPath   = @($testFolderPath)
-                                Filter       = '*kiwi*'
-                                Recurse      = $false
-                                SendMail     = @{
-                                    To   = @('bob@contoso.com')
-                                    When = 'Always'
-                                }
-                            }
-                        )
-                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
-
-                    .$testScript @testParams
-
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and
-                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
                 }
             }
-            Context 'Tasks' {
-                It 'is missing' {
-                    @{
-                        MaxConcurrentJobs = 6
-                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+            It 'Tasks.<_> not found' -ForEach @(
+                'FolderPath', 'Filter', 'ComputerName', 'SendMail'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].$_ = $null
 
-                    .$testScript @testParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and
-                        ($Message -like "*Property 'Tasks' not found.")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                    (&$MailAdminParams) -and
+                    ($Message -like "*$ImportFile*Property 'Tasks.$_' not found*")
                 }
-                It 'ComputerName is not unique' {
-                    @{
-                        MaxConcurrentJobs = 6
-                        Tasks             = @(
-                            @{
-                                ComputerName = @('PC1', 'PC1', 'PC2')
-                                FolderPath   = $testFolderPath
-                                Filter       = @('*a*')
-                                Recurse      = $false
-                                SendMail     = @{
-                                    To   = @('bob@contoso.com')
-                                    When = 'Always'
-                                }
-                            }
-                        )
-                    } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
+                }
+            }
+            It 'Tasks.SendMail.<_> not found' -ForEach @(
+                'To', 'When'
+            ) {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].SendMail.$_ = $null
 
-                    .$testScript @testParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
-                    Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                    (&$MailAdminParams) -and
+                    ($Message -like "*$ImportFile*Property 'Tasks.SendMail.$_' not found*")
+                }
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
+                }
+            }
+            It 'ComputerName is not unique' {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].ComputerName = @('PC1', 'PC1', 'PC2')
+
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
+
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                         (&$MailAdminParams) -and
                         ($Message -like "*Property 'ComputerName' contains the duplicate value 'PC1'. Duplicate values are not allowed.")
-                    }
-                    Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                        $EntryType -eq 'Error'
-                    }
                 }
-                Context 'Filter' {
-                    It 'is missing' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = $testFolderPath
-                                    # Filter     = '*kiwi*'
-                                    Recurse      = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
+                }
+            }
+            It 'Filter is not unique' {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].Filter = @('*a*', '*a*', '*b*')
 
-                        .$testScript @testParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and
-                            ($Message -like "*Property 'Filter' is mandatory.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
-                    It 'is not unique' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = $testFolderPath
-                                    Filter       = @('*a*', '*a*', '*b*')
-                                    Recurse      = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+                .$testScript @testParams
 
-                        .$testScript @testParams
-
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                             (&$MailAdminParams) -and
                             ($Message -like "*Property 'Filter' contains the duplicate value '*a*'. Duplicate values are not allowed.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
                 }
-                Context 'Recurse' {
-                    It 'is missing' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = $testFolderPath
-                                    Filter       = '*kiwi*'
-                                    # Recurse    = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
+                }
+            }
+            It 'Recurse is not a true false value' {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].Recurse = 'a'
 
-                        .$testScript @testParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and
-                            ($Message -like "*Property 'Recurse' is mandatory.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
-                    It 'is not a true false value' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = $testFolderPath
-                                    Filter       = @('*a*')
-                                    Recurse      = 'a'
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+                .$testScript @testParams
 
-                        .$testScript @testParams
-
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
                             (&$MailAdminParams) -and
                             ($Message -like "*The value 'a' in 'Recurse' is not a true false value.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
                 }
-                Context 'FolderPath' {
-                    It 'is missing' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    # FolderPath = $testFolderPath
-                                    Filter       = '*kiwi*'
-                                    Recurse      = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
-
-                        .$testScript @testParams
-
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and
-                            ($Message -like "*Property 'FolderPath' is mandatory.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
-                    It 'is duplicate' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = @(
-                                        $testFolderPath, $testFolderPath
-                                    )
-                                    Filter       = '*kiwi*'
-                                    Recurse      = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'Always'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
-
-                        .$testScript @testParams
-
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                            (&$MailAdminParams) -and
-                            ($Message -like "*Property 'FolderPath' contains the duplicate value '$testFolderPath'. Duplicate values are not allowed.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
                 }
-                Context 'SendMail' {
-                    It 'is missing' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = $testFolderPath
-                                    Filter       = '*kiwi*'
-                                    Recurse      = $false
-                                    # SendMail   = @{
-                                    #     To   = @('bob@contoso.com')
-                                    #     When = 'Always'
-                                    # }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+            }
+            It 'FolderPath contains duplicates' {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].FolderPath = @(
+                    'a', 'a', 'b'
+                )
 
-                        .$testScript @testParams
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
 
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*Property 'SendMail' is mandatory.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
-                    It 'When is not the value Always or OnlyWhenFilesAreFound' {
-                        @{
-                            MaxConcurrentJobs = 6
-                            Tasks             = @(
-                                @{
-                                    ComputerName = $null
-                                    FolderPath   = $testFolderPath
-                                    Filter       = '*kiwi*'
-                                    Recurse      = $false
-                                    SendMail     = @{
-                                        To   = @('bob@contoso.com')
-                                        When = 'a'
-                                    }
-                                }
-                            )
-                        } | ConvertTo-Json -Depth 5 | Out-File @testOutParams
+                .$testScript @testParams
 
-                        .$testScript @testParams
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and
+                        ($Message -like "*Property 'FolderPath' contains the duplicate value 'a'. Duplicate values are not allowed.")
+                }
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
+                }
+            }
+            It 'SendMail is not Always or OnlyWhenFilesAreFound' {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.Tasks[0].SendMail.When = 'a'
 
-                        Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                        (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used.")
-                        }
-                        Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
-                            $EntryType -eq 'Error'
-                        }
-                    }
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
+
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used.")
+                }
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
+                }
+            }
+            It 'MaxConcurrentJobs is not a number' {
+                $testNewInputFile = Copy-ObjectHC $testInputFile
+                $testNewInputFile.MaxConcurrentJobs = 'a'
+
+                $testNewInputFile | ConvertTo-Json -Depth 7 |
+                Out-File @testOutParams
+
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
+                        (&$MailAdminParams) -and
+                        ($Message -like "*$ImportFile*Property 'MaxConcurrentJobs' needs to be a number, the value 'a' is not supported*")
+                }
+                Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
+                    $EntryType -eq 'Error'
                 }
             }
         }

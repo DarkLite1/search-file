@@ -67,9 +67,6 @@ Begin {
         Write-EventLog @EventStartParams
         Get-ScriptRuntimeHC -Start
 
-        $error.Clear()
-        Get-Job | Remove-Job -Force -EA Ignore
-
         #region Logging
         try {
             $logParams = @{
@@ -93,61 +90,78 @@ Begin {
         #endregion
 
         #region Test .json file properties
-        if (-not ($Tasks = $file.Tasks)) {
-            throw "Input file '$ImportFile': Property 'Tasks' not found."
-        }
-
-        foreach ($task in $Tasks) {
-            if (-not $task.FolderPath) {
-                throw "Input file '$ImportFile': Property 'FolderPath' is mandatory."
-            }
-            if (-not $task.Filter) {
-                throw "Input file '$ImportFile': Property 'Filter' is mandatory."
-            }
-
-            $task.ComputerName | Group-Object |
-            Where-Object { $_.Count -ge 2 } |
-            ForEach-Object {
-                throw "Input file '$ImportFile': Property 'ComputerName' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
-            }
-
-            $task.Filter | Group-Object | Where-Object { $_.Count -ge 2 } |
-            ForEach-Object {
-                throw "Input file '$ImportFile': Property 'Filter' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
-            }
-
-            $task.FolderPath | Group-Object | Where-Object { $_.Count -ge 2 } |
-            ForEach-Object {
-                throw "Input file '$ImportFile': Property 'FolderPath' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
-            }
-
-            if ($task.PSObject.Properties.Name -notContains 'Recurse') {
-                throw "Input file '$ImportFile': Property 'Recurse' is mandatory."
-            }
-            if (-not ($task.Recurse -is [boolean])) {
-                throw "Input file '$ImportFile': The value '$($task.Recurse)' in 'Recurse' is not a true false value."
-            }
-            if (-not $task.SendMail) {
-                throw "Input file '$ImportFile': Property 'SendMail' is mandatory."
-            }
-            if (-not $task.SendMail.To) {
-                throw "Input file '$ImportFile': Property 'SendMail.To' is mandatory."
-            }
-            if (
-                $task.SendMail.When -notMatch '^Always$|^OnlyWhenFilesAreFound$'
-            ) {
-                throw "Input file '$ImportFile': The value '$($task.SendMail.When)' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used."
-            }
-        }
-
-        if (-not ($MaxConcurrentJobs = $file.MaxConcurrentJobs)) {
-            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' not found."
-        }
         try {
-            $null = $MaxConcurrentJobs.ToInt16($null)
+            @(
+                'MaxConcurrentJobs', 'Tasks'
+            ).where(
+                { -not $file.$_ }
+            ).foreach(
+                { throw "Property '$_' not found" }
+            )
+
+            try {
+                $null = [int]$MaxConcurrentJobs = $file.MaxConcurrentJobs
+            }
+            catch {
+                throw "Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+            }
+
+            if (-not ($Tasks = $file.Tasks)) {
+                throw "Input file '$ImportFile': Property 'Tasks' not found."
+            }
+
+            foreach ($task in $Tasks) {
+                @(
+                    'FolderPath', 'Filter', 'ComputerName', 'SendMail'
+                ).where(
+                    { -not $task.$_ }
+                ).foreach(
+                    { throw "Property 'Tasks.$_' not found" }
+                )
+
+                if (-not ($task.Recurse -is [boolean])) {
+                    throw "The value '$($task.Recurse)' in 'Recurse' is not a true false value."
+                }
+
+                @(
+                    'To', 'When'
+                ).where(
+                    { -not $task.SendMail.$_ }
+                ).foreach(
+                    { throw "Property 'Tasks.SendMail.$_' not found" }
+                )
+
+                if (
+                    $task.SendMail.When -notMatch '^Always$|^OnlyWhenFilesAreFound$'
+                ) {
+                    throw "The value '$($task.SendMail.When)' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used."
+                }
+
+
+                $task.ComputerName | Group-Object |
+                Where-Object { $_.Count -ge 2 } |
+                ForEach-Object {
+                    throw "Property 'ComputerName' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
+                }
+
+                $task.Filter | Group-Object | Where-Object { $_.Count -ge 2 } |
+                ForEach-Object {
+                    throw "Property 'Filter' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
+                }
+
+                $task.FolderPath | Group-Object |
+                Where-Object { $_.Count -ge 2 } |
+                ForEach-Object {
+                    throw "Property 'FolderPath' contains the duplicate value '$($_.Name)'. Duplicate values are not allowed."
+                }
+
+                if ($task.PSObject.Properties.Name -notContains 'Recurse') {
+                    throw "Property 'Recurse' is mandatory."
+                }
+            }
         }
         catch {
-            throw "Input file '$ImportFile': Property 'MaxConcurrentJobs' needs to be a number, the value '$($file.MaxConcurrentJobs)' is not supported."
+            throw "Input file '$ImportFile': $_"
         }
         #endregion
 
