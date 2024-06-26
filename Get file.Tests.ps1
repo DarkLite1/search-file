@@ -4,7 +4,6 @@
 BeforeAll {
     $testScript = $PSCommandPath.Replace('.Tests.ps1', '.ps1')
     $testParams = @{
-        Id      = 1
         Path    = (New-Item 'TestDrive:/f' -ItemType Directory).FullName
         Filters = @('*.txt')
         Recurse = $false
@@ -51,9 +50,6 @@ Describe 'return an object' {
     }
     Context 'when files are found' {
         Context 'with property' {
-            It 'Id' {
-                $actual[0].Id | Should -Be $testNewParams.Id
-            }
             It 'ComputerName' {
                 $actual[0].ComputerName | Should -Be $env:COMPUTERNAME
             }
@@ -90,9 +86,6 @@ Describe 'return an object' {
     }
     Context 'when no files are found' {
         Context 'with property' {
-            It 'Id' {
-                $actual[1].Id | Should -Be $testNewParams.Id
-            }
             It 'ComputerName' {
                 $actual[1].ComputerName | Should -Be $env:COMPUTERNAME
             }
@@ -121,9 +114,6 @@ Describe 'return an object' {
     }
     Context 'when Get-ChildItem fails' {
         Context 'with property' {
-            It 'Id' {
-                $actual[2].Id | Should -Be $testNewParams.Id
-            }
             It 'ComputerName' {
                 $actual[2].ComputerName | Should -Be $env:COMPUTERNAME
             }

@@ -164,7 +164,7 @@ Begin {
         #endregion
 
         #region Convert .json file
-        $jobId = 0
+        $tasksToExecute = @()
 
         foreach ($task in $Tasks) {
             #region Set ComputerName if there is none
@@ -177,21 +177,10 @@ Begin {
             }
             #endregion
 
-            #region Add properties
-            $task | Add-Member -NotePropertyMembers {
-                jobId = @()
-            }
-            #endregion
-
             #region Create tasks to execute
-            $tasksToExecute = foreach ($computerName in $task.ComputerName) {
+            foreach ($computerName in $task.ComputerName) {
                 foreach ($path in $task.FolderPath) {
-                    $jobId++
-
-                    $task.jobId += $jobId
-
-                    [PSCustomObject]@{
-                        JobId        = $jobId
+                    $tasksToExecute += [PSCustomObject]@{
                         ComputerName = $computerName
                         Path         = $path
                         Filter       = $task.Filter
@@ -216,87 +205,7 @@ Begin {
 }
 Process {
     Try {
-        #region Start jobs
-        foreach ($task in $Tasks) {
-            foreach ($j in $task.Jobs) {
-                #region Get matching files
-                $invokeParams = @{
-                    ScriptBlock  = $scriptblock
-                    ArgumentList = $j.Path, $task.Recurse, $task.Filter
-                }
 
-                $M = "'{0}' Start job with Path '{1}' Filter '{3}' Recurse '{2}'" -f
-                $j.ComputerName, $invokeParams.ArgumentList[0],
-                $invokeParams.ArgumentList[1],
-                $($invokeParams.ArgumentList[2] -join ', ')
-                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-
-                $computerName = $j.ComputerName
-
-                $j.Job.Object = if (
-                    $computerName -eq $env:COMPUTERNAME
-                ) {
-                    Start-Job @invokeParams
-                }
-                else {
-                    $invokeParams += @{
-                        ConfigurationName = $PSSessionConfiguration
-                        ComputerName      = $computerName
-                        AsJob             = $true
-                    }
-                    Invoke-Command @invokeParams
-                }
-
-                $M = "'{0}' job '{1}'" -f $j.ComputerName, $j.Job.Object.State
-                Write-Verbose $M
-                #endregion
-
-                #region Wait for max running jobs
-                $waitParams = @{
-                    Job        = $Tasks.Jobs.Job.Object | Where-Object { $_ }
-                    MaxThreads = $maxConcurrentJobs
-                }
-                Wait-MaxRunningJobsHC @waitParams
-                #endregion
-
-                #region Get job results
-                foreach (
-                    $completedJob in
-                    $Tasks.Jobs | Where-Object {
-                        $_.Job.Object.State -match 'Completed|Failed'
-                    }
-                ) {
-                    & $getJobResult
-                }
-                #endregion
-            }
-        }
-        #endregion
-
-        #region Wait for jobs to finish and get results
-        while (
-            $runningJobs = $Tasks.Jobs.Job.Object | Where-Object { $_ }
-        ) {
-            #region Verbose progress
-            $runningJobCounter = ($runningJobs | Measure-Object).Count
-            if ($runningJobCounter -eq 1) {
-                $M = 'Wait for the last running job to finish'
-            }
-            else {
-                $M = "Wait for one of '{0}' running jobs to finish" -f $runningJobCounter
-            }
-            Write-Verbose $M
-            #endregion
-
-            $finishedJob = $runningJobs | Wait-Job -Any
-
-            $completedJob = $Tasks.Jobs | Where-Object {
-                ($_.Job.Object.Id -eq $finishedJob.Id)
-            }
-
-            & $getJobResult
-        }
-        #endregion
     }
     Catch {
         Write-Warning $_

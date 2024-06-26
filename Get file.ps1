@@ -1,7 +1,5 @@
 ﻿Param (
     [Parameter(Mandatory)]
-    [Int]$Id,
-    [Parameter(Mandatory)]
     [String]$Path,
     [Parameter(Mandatory)]
     [Boolean]$Recurse,
@@ -16,7 +14,6 @@ if (-not (Test-Path -LiteralPath $Path -PathType 'Container')) {
 foreach ($filter in $Filters) {
     try {
         $result = [PSCustomObject]@{
-            Id           = $Id
             ComputerName = $env:COMPUTERNAME
             Path         = $Path
             Recurse      = $Recurse
