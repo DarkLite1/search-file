@@ -53,6 +53,7 @@ Param (
     [string]$ScriptName,
     [Parameter(Mandatory)]
     [String]$ImportFile,
+    [String]$SearchScript = "$PSScriptRoot\Get file.ps1",
     [String]$PSSessionConfiguration = 'PowerShell.7',
     [String]$LogFolder = "$env:POWERSHELL_LOG_FOLDER\File or folder\Search file\$ScriptName",
     [String[]]$ScriptAdmin = @(
@@ -79,6 +80,19 @@ Begin {
         }
         Catch {
             throw "Failed creating the log folder '$LogFolder': $_"
+        }
+        #endregion
+
+        #region Test script path exists
+        try {
+            $params = @{
+                Path        = $SearchScript
+                ErrorAction = 'Stop'
+            }
+            $searchScriptPath = (Get-Item @params).FullName
+        }
+        catch {
+            throw "Search script with path '$SearchScript' not found"
         }
         #endregion
 
