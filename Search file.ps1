@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+#Requires -Version 7
 #Requires -Modules Toolbox.HTML, Toolbox.EventLog, Toolbox.Remoting
 
 <#
@@ -62,165 +62,6 @@ Param (
 )
 
 Begin {
-    Function Get-JobDurationHC {
-        [OutputType([TimeSpan])]
-        Param (
-            [Parameter(Mandatory)]
-            [System.Management.Automation.Job]$Job
-        )
-
-        $params = @{
-            Start = $Job.PSBeginTime
-            End   = $Job.PSEndTime
-        }
-        $jobDuration = New-TimeSpan @params
-
-        #region Get computer name
-        $computerName = $Job.Location
-        if ($Job.Location -eq 'localhost') {
-            $computerName = $env:COMPUTERNAME
-        }
-        #endregion
-
-        $M = "'{0}' job duration '{1:hh}:{1:mm}:{1:ss}:{1:fff}'" -f
-        $computerName, $jobDuration
-        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-
-        $jobDuration
-    }
-    Function Get-JobResultsAndErrorsHC {
-        [OutputType([PSCustomObject])]
-        Param (
-            [Parameter(Mandatory)]
-            [System.Management.Automation.Job]$Job
-        )
-
-        $result = [PSCustomObject]@{
-            Result = $null
-            Errors = @()
-        }
-
-        #region Get computer name
-        $computerName = $Job.Location
-        if ($Job.Location -eq 'localhost') {
-            $computerName = $env:COMPUTERNAME
-        }
-        #endregion
-
-        #region Get job results
-        $M = "'{0}' job '{1}'" -f $computerName, $job.State
-        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-
-        $jobErrors = @()
-        $receiveParams = @{
-            ErrorVariable = 'jobErrors'
-            ErrorAction   = 'SilentlyContinue'
-        }
-        $result.Result = $Job | Receive-Job @receiveParams
-        #endregion
-
-        #region Get job errors
-        foreach ($e in $jobErrors) {
-            $M = "'{0}' job error '{1}'" -f $computerName, $e.ToString()
-            Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
-
-            $result.Errors += $e.ToString()
-            $error.Remove($e)
-        }
-        if ($resultErrors = $result.Result.Error | Where-Object { $_ }) {
-            foreach ($e in $resultErrors) {
-                $M = "'{0}' error '{1}'" -f $computerName, $e
-                Write-Warning $M; Write-EventLog @EventWarnParams -Message $M
-
-                $result.Errors += $e
-            }
-        }
-        #endregion
-
-        $result.Result = $result.Result |
-        Select-Object -Property * -ExcludeProperty 'Error'
-
-        if ((-not $result.Errors) -and (-not $result.Result.Error)) {
-            $M = "'{0}' job successful found '{1}' files" -f $computerName,
-            $result.Result.Files.Count
-            Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-        }
-
-        $result
-    }
-
-    $getMatchingFilesHC = {
-        [OutputType([PSCustomObject])]
-        Param (
-            [Parameter(Mandatory)]
-            [String]$Path,
-            [Parameter(Mandatory)]
-            [Boolean]$Recurse,
-            [Parameter(Mandatory)]
-            [String[]]$Filters
-        )
-
-        if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
-            throw "Path '$Path' not found."
-        }
-
-        foreach ($filter in $Filters) {
-            try {
-                $startDate = Get-Date
-
-                $result = [PSCustomObject]@{
-                    Filter   = $filter
-                    Files    = @()
-                    Duration = $null
-                    Error    = $null
-                }
-
-                $params = @{
-                    LiteralPath = $Path
-                    Recurse     = $Recurse
-                    Filter      = $filter
-                    File        = $true
-                    ErrorAction = 'Stop'
-                }
-                $result.Files += Get-ChildItem @params
-            }
-            catch {
-                $result.Error = "Failed retrieving files with filter '$filter': $_"
-                $Error.RemoveAt(0)
-            }
-            finally {
-                $result.Duration = (Get-Date) - $startDate
-                $result
-            }
-        }
-    }
-    $getJobResult = {
-        #region Verbose
-        $M = "'{0}' Get job result for Path '{1}'" -f
-        $completedJob.ComputerName, $completedJob.Path
-        Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
-        #endregion
-
-        #region Get job results
-        $params = @{
-            Job = $completedJob.Job.Object
-        }
-        $jobOutput = Get-JobResultsAndErrorsHC @params
-
-        $completedJob.Job.Duration = Get-JobDurationHC @params
-        #endregion
-
-        #region Add job results
-        $completedJob.Job.Result = $jobOutput.Result
-
-        $jobOutput.Errors | ForEach-Object {
-            $completedJob.Job.Errors += $_
-        }
-        #endregion
-
-        $completedJob.Job.Object = $null
-    }
-
     Try {
         Import-EventLogParamsHC -Source $ScriptName
         Write-EventLog @EventStartParams
@@ -357,7 +198,7 @@ Process {
             foreach ($j in $task.Jobs) {
                 #region Get matching files
                 $invokeParams = @{
-                    ScriptBlock  = $getMatchingFilesHC
+                    ScriptBlock  = $scriptblock
                     ArgumentList = $j.Path, $task.Recurse, $task.Filter
                 }
 
