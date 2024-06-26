@@ -2,9 +2,9 @@
     [Parameter(Mandatory)]
     [String]$Path,
     [Parameter(Mandatory)]
-    [Boolean]$Recurse,
+    [String[]]$Filters,
     [Parameter(Mandatory)]
-    [String[]]$Filters
+    [Boolean]$Recurse
 )
 
 if (-not (Test-Path -LiteralPath $Path -PathType 'Container')) {
