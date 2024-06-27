@@ -50,12 +50,6 @@ Describe 'return an object' {
     }
     Context 'when files are found' {
         Context 'with property' {
-            It 'ComputerName' {
-                $actual[0].ComputerName | Should -Be $env:COMPUTERNAME
-            }
-            It 'Path' {
-                $actual[0].Path | Should -Be $testNewParams.Path
-            }
             It 'Files' {
                 $expected = $testFiles.where(
                     { $_.extension -eq '.txt' }
@@ -70,9 +64,6 @@ Describe 'return an object' {
             It 'Filter' {
                 $actual[0].Filter | Should -Be $testNewParams.Filters[0]
             }
-            It 'Recurse' {
-                $actual[0].Recurse | Should -Be $testNewParams.Recurse
-            }
             It 'StartTime' {
                 $actual[0].StartTime | Should -BeOfType 'System.DateTime'
             }
@@ -86,20 +77,11 @@ Describe 'return an object' {
     }
     Context 'when no files are found' {
         Context 'with property' {
-            It 'ComputerName' {
-                $actual[1].ComputerName | Should -Be $env:COMPUTERNAME
-            }
-            It 'Path' {
-                $actual[1].Path | Should -Be $testNewParams.Path
-            }
             It 'Files' {
                 $actual[1].Files | Should -BeNullOrEmpty
             }
             It 'Filter' {
                 $actual[1].Filter | Should -Be $testNewParams.Filters[1]
-            }
-            It 'Recurse' {
-                $actual[1].Recurse | Should -Be $testNewParams.Recurse
             }
             It 'StartTime' {
                 $actual[1].StartTime | Should -BeOfType 'System.DateTime'
@@ -114,20 +96,11 @@ Describe 'return an object' {
     }
     Context 'when Get-ChildItem fails' {
         Context 'with property' {
-            It 'ComputerName' {
-                $actual[2].ComputerName | Should -Be $env:COMPUTERNAME
-            }
-            It 'Path' {
-                $actual[2].Path | Should -Be $testNewParams.Path
-            }
             It 'Files' {
                 $actual[2].Files | Should -BeNullOrEmpty
             }
             It 'Filter' {
                 $actual[2].Filter | Should -Be $testNewParams.Filters[2]
-            }
-            It 'Recurse' {
-                $actual[2].Recurse | Should -Be $testNewParams.Recurse
             }
             It 'StartTime' {
                 $actual[2].StartTime | Should -BeOfType 'System.DateTime'

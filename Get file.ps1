@@ -14,9 +14,6 @@ if (-not (Test-Path -LiteralPath $Path -PathType 'Container')) {
 foreach ($filter in $Filters) {
     try {
         $result = [PSCustomObject]@{
-            ComputerName = $env:COMPUTERNAME
-            Path         = $Path
-            Recurse      = $Recurse
             Filter       = $filter
             Files        = @()
             StartTime    = Get-Date

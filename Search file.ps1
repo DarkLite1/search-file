@@ -197,7 +197,7 @@ Begin {
                     $tasksToExecute += [PSCustomObject]@{
                         ComputerName = $computerName
                         Path         = $path
-                        Filter       = $task.Filter
+                        Filters      = $task.Filter
                         Recurse      = $task.Recurse
                         Job          = @{
                             Results = @()
@@ -219,7 +219,93 @@ Begin {
 }
 Process {
     Try {
+        $scriptBlock = {
+            try {
+                $task = $_
 
+                #region Declare variables for code running in parallel
+                if (-not $MaxConcurrentJobs) {
+                    $searchScriptPath = $using:searchScriptPath
+                    $PSSessionConfiguration = $using:PSSessionConfiguration
+                    $EventVerboseParams = $using:EventVerboseParams
+                    $EventErrorParams = $using:EventErrorParams
+                    $EventOutParams = $using:EventOutParams
+                }
+                #endregion
+
+                #region Create job parameters
+                $invokeParams = @{
+                    ComputerName        = $task.ComputerName
+                    FilePath            = $searchScriptPath
+                    ConfigurationName   = $PSSessionConfiguration
+                    ArgumentList        = $task.Path, $task.Filters, $task.Recurse
+                    EnableNetworkAccess = $true
+                    ErrorAction         = 'Stop'
+                }
+
+                $M = "Start job on '{0}' Path '{1}' Filters '{2}' Recurse '{3}'" -f
+                $invokeParams.ComputerName,
+                $invokeParams.ArgumentList[0],
+                $($invokeParams.ArgumentList[1] -join ', '),
+                $invokeParams.ArgumentList[2]
+                Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
+                #endregion
+
+                #region Start job
+                $task.Job.Results += Invoke-Command @invokeParams
+                #endregion
+
+                #region Verbose
+                $M = "Results from '{0}' Path '{1}' Filters '{2}' Recurse '{3}': {4}" -f
+                $invokeParams.ComputerName,
+                $invokeParams.ArgumentList[0],
+                $($invokeParams.ArgumentList[1] -join ', '),
+                $invokeParams.ArgumentList[2],
+                $task.Job.Results[-1].Count
+
+                if ($errorCount = $task.Job.Results.Where({ $_.Error }).Count) {
+                    $M += " , Errors: {0}" -f $errorCount
+                    Write-Warning $M
+                    Write-EventLog @EventErrorParams -Message $M
+                }
+                elseif ($task.Job.Results.Count) {
+                    Write-Verbose $M
+                    Write-EventLog @EventOutParams -Message $M
+                }
+                else {
+                    Write-Verbose $M
+                    Write-EventLog @EventVerboseParams -Message $M
+                }
+                #endregion
+            }
+            catch {
+                $M = "Error on '{0}' Path '{1}' Filters '{2}' Recurse '{3}': $_" -f
+                $invokeParams.ComputerName,
+                $invokeParams.ArgumentList[0],
+                $($invokeParams.ArgumentList[1] -join ', '),
+                $invokeParams.ArgumentList[2]
+                Write-Warning $M; Write-EventLog @EventErrorParams -Message $M
+
+                $task.Job.Errors += $_
+                $Error.RemoveAt(0)
+            }
+        }
+
+        #region Run code serial or parallel
+        $foreachParams = if ($MaxConcurrentJobs -eq 1) {
+            @{
+                Process = $scriptBlock
+            }
+        }
+        else {
+            @{
+                Parallel      = $scriptBlock
+                ThrottleLimit = $MaxConcurrentJobs
+            }
+        }
+
+        $tasksToExecute | ForEach-Object @foreachParams
+        #endregion
     }
     Catch {
         Write-Warning $_
