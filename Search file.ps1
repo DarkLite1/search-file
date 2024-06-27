@@ -194,14 +194,16 @@ Begin {
             #region Create tasks to execute
             foreach ($computerName in $task.ComputerName) {
                 foreach ($path in $task.FolderPath) {
-                    $tasksToExecute += [PSCustomObject]@{
-                        ComputerName = $computerName
-                        Path         = $path
-                        Filters      = $task.Filter
-                        Recurse      = $task.Recurse
-                        Job          = @{
-                            Results = @()
-                            Errors  = @()
+                    foreach ($filter in $task.Filter) {
+                        $tasksToExecute += [PSCustomObject]@{
+                            ComputerName = $computerName
+                            Path         = $path
+                            Filter       = $filter
+                            Recurse      = $task.Recurse
+                            Job          = @{
+                                Results = @()
+                                Errors  = @()
+                            }
                         }
                     }
                 }
@@ -238,12 +240,12 @@ Process {
                     ComputerName        = $task.ComputerName
                     FilePath            = $searchScriptPath
                     ConfigurationName   = $PSSessionConfiguration
-                    ArgumentList        = $task.Path, $task.Filters, $task.Recurse
+                    ArgumentList        = $task.Path, $task.Filter, $task.Recurse
                     EnableNetworkAccess = $true
                     ErrorAction         = 'Stop'
                 }
 
-                $M = "Start job on '{0}' Path '{1}' Filters '{2}' Recurse '{3}'" -f
+                $M = "Start job on '{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f
                 $invokeParams.ComputerName,
                 $invokeParams.ArgumentList[0],
                 $($invokeParams.ArgumentList[1] -join ', '),
