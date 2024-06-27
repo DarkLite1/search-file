@@ -230,7 +230,7 @@ Describe 'send an e-mail to the admin when' {
                 .$testScript @testParams
 
                 Should -Invoke Send-MailHC -Exactly 1 -ParameterFilter {
-                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used.")
+                    (&$MailAdminParams) -and ($Message -like "*$ImportFile*The value 'a' in 'Tasks.SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used.")
                 }
                 Should -Invoke Write-EventLog -Exactly 1 -ParameterFilter {
                     $EntryType -eq 'Error'
@@ -257,34 +257,11 @@ Describe 'send an e-mail to the admin when' {
     }
 }
 Describe 'execute the search script with Invoke-Command' {
-    It 'once for 1 computer name and 1 database name' {
+    It 'once for each computer, path and filter' {
         $testNewInputFile = Copy-ObjectHC $testInputFile
-        $testNewInputFile.Tasks[0].ComputerName = 'PC1'
-
-        $testNewInputFile | ConvertTo-Json -Depth 7 |
-        Out-File @testOutParams
-
-        .$testScript @testParams
-
-        Should -Invoke Invoke-Command -Times 1 -Exactly -ParameterFilter {
-            ($ComputerName -eq $env:COMPUTERNAME) -and
-            ($FilePath -eq $testParams.SqlScript) -and
-            ($EnableNetworkAccess) -and
-            ($ErrorAction -eq 'Stop') -and
-            ($ArgumentList[0] -eq $testNewInputFile.Tasks[0].ComputerNames) -and
-            ($ArgumentList[1] -eq $testNewInputFile.Tasks[0].DatabaseNames) -and
-            ($ArgumentList[2][0] -eq $testData.sqlFile[0].Content) -and
-            ($ArgumentList[2][1] -eq $testData.sqlFile[1].Content) -and
-            ($ArgumentList[3][0] -eq $testData.sqlFile[0].Path) -and
-            ($ArgumentList[3][1] -eq $testData.sqlFile[1].Path)
-        }
-
-        Should -Invoke Invoke-Command -Times 1 -Exactly
-    }
-    It 'once for each computer name and each database name' {
-        $testNewInputFile = Copy-ObjectHC $testInputFile
-        $testNewInputFile.Tasks[0].ComputerNames = @('PC1', 'PC2')
-        $testNewInputFile.Tasks[0].DatabaseNames = @('db1', 'db2')
+        $testNewInputFile.Tasks[0].ComputerName = @('PC1', 'PC2')
+        $testNewInputFile.Tasks[0].FolderPath = @('z:\a', 'z:\b')
+        $testNewInputFile.Tasks[0].Filter = @('*.txt', '*.pst')
 
         $testNewInputFile | ConvertTo-Json -Depth 7 |
         Out-File @testOutParams
@@ -293,27 +270,29 @@ Describe 'execute the search script with Invoke-Command' {
 
         foreach (
             $testComputer in
-            $testNewInputFile.Tasks[0].ComputerNames
+            $testNewInputFile.Tasks[0].ComputerName
         ) {
             foreach (
-                $testDatabase in
-                $testNewInputFile.Tasks[0].DatabaseNames
+                $testPath in
+                $testNewInputFile.Tasks[0].FolderPath
             ) {
-                Should -Invoke Invoke-Command -Times 1 -Exactly -ParameterFilter {
-                    ($ComputerName -eq $env:COMPUTERNAME) -and
-                    ($FilePath -eq $testParams.SqlScript) -and
-                    ($EnableNetworkAccess) -and
-                    ($ErrorAction -eq 'Stop') -and
-                    ($ArgumentList[0] -eq $testComputer) -and
-                    ($ArgumentList[1] -eq $testDatabase) -and
-                    ($ArgumentList[2][0] -eq $testData.sqlFile[0].Content) -and
-                    ($ArgumentList[2][1] -eq $testData.sqlFile[1].Content) -and
-                    ($ArgumentList[3][0] -eq $testData.sqlFile[0].Path) -and
-                    ($ArgumentList[3][1] -eq $testData.sqlFile[1].Path)
+                foreach (
+                    $testFilter in
+                    $testNewInputFile.Tasks[0].Filter
+                ) {
+                    Should -Invoke Invoke-Command -Times 1 -Exactly -ParameterFilter {
+                        ($ComputerName -eq $testComputer) -and
+                        ($FilePath -eq $testParams.SearchScript) -and
+                        ($EnableNetworkAccess) -and
+                        ($ErrorAction -eq 'Stop') -and
+                        ($ArgumentList[0] -eq $testPath) -and
+                        ($ArgumentList[1] -eq $testFilter) -and
+                        ($ArgumentList[2] -eq $testNewInputFile.Tasks[0].Recurse)
+                    }
                 }
             }
         }
 
-        Should -Invoke Invoke-Command -Times 4 -Exactly
+        Should -Invoke Invoke-Command -Times 8 -Exactly
     }
 }

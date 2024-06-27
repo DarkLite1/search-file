@@ -146,9 +146,8 @@ Begin {
                 if (
                     $task.SendMail.When -notMatch '^Always$|^OnlyWhenFilesAreFound$'
                 ) {
-                    throw "The value '$($task.SendMail.When)' in 'SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used."
+                    throw "The value '$($task.SendMail.When)' in 'Tasks.SendMail.When' is not supported. Only the value 'Always' or 'OnlyWhenFilesAreFound' can be used."
                 }
-
 
                 $task.ComputerName | Group-Object |
                 Where-Object { $_.Count -ge 2 } |
@@ -200,9 +199,10 @@ Begin {
                             Path         = $path
                             Filter       = $filter
                             Recurse      = $task.Recurse
+                            SendMail     = $task.SendMail
                             Job          = @{
                                 Results = @()
-                                Errors  = @()
+                                Error   = $null
                             }
                         }
                     }
@@ -288,7 +288,7 @@ Process {
                 $invokeParams.ArgumentList[2]
                 Write-Warning $M; Write-EventLog @EventErrorParams -Message $M
 
-                $task.Job.Errors += $_
+                $task.Job.Error = $_
                 $Error.RemoveAt(0)
             }
         }
@@ -318,123 +318,70 @@ Process {
 }
 End {
     try {
-        for ($i = 0; $i -lt $Tasks.Count; $i++) {
-            #region Verbose
-            $M = "Task ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}' MailTo '{4}' MailWhen '{5}'" -f
-            $($Tasks[$i].ComputerName -join ', '),
-            $($Tasks[$i].FolderPath -join ', '),
-            $($Tasks[$i].Filter -join ', '),
-            $Tasks[$i].Recurse,
-            $($Tasks[$i].SendMail.To -join ', '),
-            $Tasks[$i].SendMail.When
-            Write-Verbose $M
-            #endregion
+        #region Count results, errors, ...
+        $counter = @{
+            totalTasks      = $tasksToExecute.Count
+            totalFoundFiles = $tasksToExecute.Job.Results.Count
+            executionErrors = $tasksToExecute.where({ $_.Error }).Count
+            jobErrors       = $tasksToExecute.Job.where({ $_.Error }).Count
+            systemErrors    = ($Error.Exception.Message | Measure-Object).Count
+        }
+        $counter.totalErrors = $counter.executionErrors +
+        $counter.jobErrors + $counter.systemErrors
+        #endregion
 
-            $mailParams = @{
-                To        = $Tasks[$i].SendMail.To
-                Bcc       = $ScriptAdmin
-                Priority  = 'Normal'
-                LogFolder = $logParams.LogFolder
-                Header    = if ($Tasks[$i].SendMail.Header) {
-                    $Tasks[$i].SendMail.Header
-                }
-                else { $ScriptName }
-                Save      = "$logFile - $i - Mail.html"
-            }
+        #region Exit script when no mail is required
+        if (
+            (-not $counter.totalFoundFiles) -and
+            (-not $counter.totalErrors) -and
+            ($file.SendMail.When -ne 'Always')
 
-            $excelParams = @{
-                Path         = "$logFile - $i - Log.xlsx"
-                AutoSize     = $true
-                FreezeTopRow = $true
-            }
-            $excelSheet = @{
-                Files  = @()
-                Errors = @()
-            }
+        ) {
+            Exit
+        }
+        #endregion
 
-            #region Create Excel worksheet Files
-            $excelSheet.Files += foreach ($j in $Tasks[$i].Jobs) {
-                foreach ($r in $j.Job.Result) {
-                    $r.Files | Select-Object -Property @{
-                        Name       = 'ComputerName';
-                        Expression = { $j.ComputerName }
-                    },
-                    @{
-                        Name       = 'Path';
-                        Expression = { $j.Path }
-                    },
-                    @{
-                        Name       = 'Recurse';
-                        Expression = { $Tasks[$i].Recurse }
-                    },
-                    @{
-                        Name       = 'Filter';
-                        Expression = { $r.Filter }
-                    },
-                    @{
-                        Name       = 'File';
-                        Expression = { $_.FullName }
-                    },
-                    @{
-                        Name       = 'CreationTime';
-                        Expression = { $_.CreationTime }
-                    },
-                    @{
-                        Name       = 'LastWriteTime';
-                        Expression = { $_.LastWriteTime }
-                    },
-                    @{
-                        Name       = 'Size';
-                        Expression = { [MATH]::Round($_.Length / 1GB, 2) }
-                    },
-                    @{
-                        Name       = 'Size_';
-                        Expression = { $_.Length }
-                    },
-                    @{
-                        Name       = 'Duration';
-                        Expression = {
-                            '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $r.Duration
-                        }
-                    }
-                }
-            }
+        $mailParams = @{
+            To        = $file.SendMail.To
+            Bcc       = $ScriptAdmin
+            LogFolder = $logParams.LogFolder
+            Header    = if ($file.SendMail.Header) { $file.SendMail.Header }
+            else { $ScriptName }
+            Save      = "$logFile - Mail.html"
+        }
 
-            if ($excelSheet.Files) {
-                $excelParams.WorksheetName = 'Files'
-                $excelParams.TableName = 'Files'
+        #region Mail subject and priority
+        $mailParams.Priority = 'Normal'
 
-                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
-                $excelSheet.Files.Count,
-                $excelParams.WorksheetName, $excelParams.Path
-                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+        $mailParams.Subject = '{0} {1}' -f $counter.sqlFiles, $(
+            if ($counter.sqlFiles -ne 1) { 'queries' } else { 'query' }
+        )
 
-                $excelSheet.Files |
-                Export-Excel @excelParams -AutoNameRange -CellStyleSB {
-                    Param (
-                        $WorkSheet,
-                        $TotalRows,
-                        $LastColumn
-                    )
+        if (
+            $totalErrorCount = $counter.executionErrors + $counter.jobErrors +
+            $counter.systemErrors
+        ) {
+            $mailParams.Priority = 'High'
+            $mailParams.Subject += ", $totalErrorCount error{0}" -f $(
+                if ($totalErrorCount -ne 1) { 's' }
+            )
+        }
+        #endregion
 
-                    @($WorkSheet.Names['Size'].Style).ForEach( {
-                            $_.NumberFormat.Format = '?\ \G\B'
-                            $_.HorizontalAlignment = 'Center'
-                        })
+        $excelParams = @{
+            Path         = "$logFile - $i - Log.xlsx"
+            AutoSize     = $true
+            FreezeTopRow = $true
+        }
+        $excelSheet = @{
+            Files  = @()
+            Errors = @()
+        }
 
-                    @($WorkSheet.Names['Size_'].Style).ForEach( {
-                            $_.NumberFormat.Format = '?\ \B'
-                            $_.HorizontalAlignment = 'Center'
-                        })
-                }
-
-                $mailParams.Attachments = $excelParams.Path
-            }
-            #endregion
-
-            #region Create Excel worksheet Errors
-            $excelSheet.Errors += foreach ($j in $Tasks[$i].Jobs) {
-                $j.Job | Where-Object { $_.Errors } | Select-Object -Property @{
+        #region Create Excel worksheet Files
+        $excelSheet.Files += foreach ($j in $Tasks[$i].Jobs) {
+            foreach ($r in $j.Job.Result) {
+                $r.Files | Select-Object -Property @{
                     Name       = 'ComputerName';
                     Expression = { $j.ComputerName }
                 },
@@ -443,69 +390,148 @@ End {
                     Expression = { $j.Path }
                 },
                 @{
+                    Name       = 'Recurse';
+                    Expression = { $Tasks[$i].Recurse }
+                },
+                @{
                     Name       = 'Filter';
-                    Expression = { $Tasks[$i].Filter -join ', ' }
+                    Expression = { $r.Filter }
+                },
+                @{
+                    Name       = 'File';
+                    Expression = { $_.FullName }
+                },
+                @{
+                    Name       = 'CreationTime';
+                    Expression = { $_.CreationTime }
+                },
+                @{
+                    Name       = 'LastWriteTime';
+                    Expression = { $_.LastWriteTime }
+                },
+                @{
+                    Name       = 'Size';
+                    Expression = { [MATH]::Round($_.Length / 1GB, 2) }
+                },
+                @{
+                    Name       = 'Size_';
+                    Expression = { $_.Length }
                 },
                 @{
                     Name       = 'Duration';
                     Expression = {
-                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration
+                        '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $r.Duration
                     }
-                },
-                @{
-                    Name       = 'Error';
-                    Expression = { $_.Errors -join ', ' }
                 }
             }
+        }
 
-            if ($excelSheet.Errors) {
-                $excelParams.WorksheetName = 'Errors'
-                $excelParams.TableName = 'Errors'
+        if ($excelSheet.Files) {
+            $excelParams.WorksheetName = 'Files'
+            $excelParams.TableName = 'Files'
 
-                $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
-                $excelSheet.Errors.Count,
-                $excelParams.WorksheetName, $excelParams.Path
-                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+            $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
+            $excelSheet.Files.Count,
+            $excelParams.WorksheetName, $excelParams.Path
+            Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
-                $excelSheet.Errors | Export-Excel @excelParams
+            $excelSheet.Files |
+            Export-Excel @excelParams -AutoNameRange -CellStyleSB {
+                Param (
+                    $WorkSheet,
+                    $TotalRows,
+                    $LastColumn
+                )
 
-                $mailParams.Attachments = $excelParams.Path
+                @($WorkSheet.Names['Size'].Style).ForEach( {
+                        $_.NumberFormat.Format = '?\ \G\B'
+                        $_.HorizontalAlignment = 'Center'
+                    })
+
+                @($WorkSheet.Names['Size_'].Style).ForEach( {
+                        $_.NumberFormat.Format = '?\ \B'
+                        $_.HorizontalAlignment = 'Center'
+                    })
             }
-            #endregion
 
-            #region Send mail
-            if (
+            $mailParams.Attachments = $excelParams.Path
+        }
+        #endregion
+
+        #region Create Excel worksheet Errors
+        $excelSheet.Errors += foreach ($j in $Tasks[$i].Jobs) {
+            $j.Job | Where-Object { $_.Errors } | Select-Object -Property @{
+                Name       = 'ComputerName';
+                Expression = { $j.ComputerName }
+            },
+            @{
+                Name       = 'Path';
+                Expression = { $j.Path }
+            },
+            @{
+                Name       = 'Filter';
+                Expression = { $Tasks[$i].Filter -join ', ' }
+            },
+            @{
+                Name       = 'Duration';
+                Expression = {
+                    '{0:hh}:{0:mm}:{0:ss}:{0:fff}' -f $_.Duration
+                }
+            },
+            @{
+                Name       = 'Error';
+                Expression = { $_.Errors -join ', ' }
+            }
+        }
+
+        if ($excelSheet.Errors) {
+            $excelParams.WorksheetName = 'Errors'
+            $excelParams.TableName = 'Errors'
+
+            $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
+            $excelSheet.Errors.Count,
+            $excelParams.WorksheetName, $excelParams.Path
+            Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+
+            $excelSheet.Errors | Export-Excel @excelParams
+
+            $mailParams.Attachments = $excelParams.Path
+        }
+        #endregion
+
+        #region Send mail
+        if (
                 ($Tasks[$i].SendMail.When -eq 'Always') -or
                 ($excelSheet.Files) -or
                 ($excelSheet.Errors)
+        ) {
+            $errorMessage = $null
+
+            #region Subject and Priority
+            $mailParams.Subject = '{0} file{1} found' -f
+            $excelSheet.Files.Count,
+            $(if ($excelSheet.Files.Count -ne 1) { 's' })
+
+            if ($excelSheet.Errors) {
+                $mailParams.Priority = 'High'
+
+                $mailParams.Subject += ', {0} error{1}' -f
+                $excelSheet.Errors.Count,
+                $(if ($excelSheet.Errors.Count -ne 1) { 's' })
+
+                $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
+                $excelSheet.Errors.Count,
+                $(if ($excelSheet.Errors.Count -ne 1) { 's' })
+            }
+            #endregion
+
+
+            $tableRows = foreach (
+                $computerName in
+                $Tasks[$i].ComputerName
             ) {
-                $errorMessage = $null
-
-                #region Subject and Priority
-                $mailParams.Subject = '{0} file{1} found' -f
-                $excelSheet.Files.Count,
-                $(if ($excelSheet.Files.Count -ne 1) { 's' })
-
-                if ($excelSheet.Errors) {
-                    $mailParams.Priority = 'High'
-
-                    $mailParams.Subject += ', {0} error{1}' -f
-                    $excelSheet.Errors.Count,
-                    $(if ($excelSheet.Errors.Count -ne 1) { 's' })
-
-                    $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
-                    $excelSheet.Errors.Count,
-                    $(if ($excelSheet.Errors.Count -ne 1) { 's' })
-                }
-                #endregion
-
-
-                $tableRows = foreach (
-                    $computerName in
-                    $Tasks[$i].ComputerName
-                ) {
-                    foreach ($path in $Tasks[$i].FolderPath) {
-                        $computerPathHtml = "<tr>
+                foreach ($path in $Tasks[$i].FolderPath) {
+                    $computerPathHtml = "<tr>
                             <th>{0}</th>
                             <th>{1}</th>
                        </tr>
@@ -513,69 +539,68 @@ End {
                             <td>Filter</td>
                             <td>Files found</td>
                         </tr>" -f $computerName, $(
-                            if ($path -match '^\\\\') {
-                                '<a href="{0}">{0}</a>' -f $path
-                            }
-                            else {
-                                $uncPath = $path -Replace '^.{2}', (
-                                    '\\{0}\{1}$' -f $computerName, $path[0]
-                                )
-                                '<a href="{0}">{0}</a>' -f $uncPath
-                            }
-                        )
+                        if ($path -match '^\\\\') {
+                            '<a href="{0}">{0}</a>' -f $path
+                        }
+                        else {
+                            $uncPath = $path -Replace '^.{2}', (
+                                '\\{0}\{1}$' -f $computerName, $path[0]
+                            )
+                            '<a href="{0}">{0}</a>' -f $uncPath
+                        }
+                    )
 
-                        $matchesFoundHtml = foreach (
-                            $filter in
-                            $Tasks[$i].Filter
-                        ) {
-                            $matchesCount = $excelSheet.Files | Where-Object {
+                    $matchesFoundHtml = foreach (
+                        $filter in
+                        $Tasks[$i].Filter
+                    ) {
+                        $matchesCount = $excelSheet.Files | Where-Object {
                                 ($_.ComputerName -eq $computerName) -and
                                 ($_.Path -eq $path) -and
                                 ($_.Filter -eq $filter)
-                            } | Measure-Object |
-                            Select-Object -ExpandProperty Count
+                        } | Measure-Object |
+                        Select-Object -ExpandProperty Count
 
-                            if (
+                        if (
                                 ($Tasks[$i].SendMail.When -eq 'Always') -or
                                 ($matchesCount)
-                            ) {
-                                "<tr>
+                        ) {
+                            "<tr>
                                     <td>{0}</td>
                                     <td>{1}</td>
                                 </tr>" -f $filter, $matchesCount
-                            }
                         }
-
-                        if ($matchesFoundHtml) {
-                            $computerPathHtml
-                            $matchesFoundHtml
-                        }
-
                     }
-                }
 
-                $mailParams.Message = "
+                    if ($matchesFoundHtml) {
+                        $computerPathHtml
+                        $matchesFoundHtml
+                    }
+
+                }
+            }
+
+            $mailParams.Message = "
                 $errorMessage
                 <p>Found a total of <b>{0} files</b>:</p>
                 <table>
                     $tableRows
                 </table>
                 {1}" -f $excelSheet.Files.Count, $(
-                    if ($mailParams.Attachments) {
-                        '<p><i>* Check the attachment for details</i></p>'
-                    }
-                )
+                if ($mailParams.Attachments) {
+                    '<p><i>* Check the attachment for details</i></p>'
+                }
+            )
 
-                $M = "Send mail`r`n- Header:`t{0}`r`n- To:`t`t{1}`r`n- Subject:`t{2}" -f
-                $mailParams.Header, $($mailParams.To -join ','),
-                $mailParams.Subject
-                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
+            $M = "Send mail`r`n- Header:`t{0}`r`n- To:`t`t{1}`r`n- Subject:`t{2}" -f
+            $mailParams.Header, $($mailParams.To -join ','),
+            $mailParams.Subject
+            Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
 
-                Get-ScriptRuntimeHC -Stop
-                Send-MailHC @mailParams
-            }
-            #endregion
+            Get-ScriptRuntimeHC -Stop
+            Send-MailHC @mailParams
         }
+        #endregion
     }
     Catch {
         Write-Warning $_
@@ -583,7 +608,6 @@ End {
         Write-EventLog @EventErrorParams -Message "FAILURE:`n`n- $_"; Exit 1
     }
     Finally {
-        Get-Job | Remove-Job -Force -ErrorAction Ignore
         Write-EventLog @EventEndParams
     }
 }
