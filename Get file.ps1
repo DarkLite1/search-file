@@ -1,5 +1,7 @@
 ﻿Param (
     [Parameter(Mandatory)]
+    [Int]$Id,
+    [Parameter(Mandatory)]
     [String]$Path,
     [Parameter(Mandatory)]
     [String]$Filter,
@@ -9,6 +11,7 @@
 
 try {
     $result = [PSCustomObject]@{
+        Id        = $Id
         Files     = @()
         StartTime = Get-Date
         EndTime   = $null

@@ -4,13 +4,14 @@
 BeforeAll {
     $testScript = $PSCommandPath.Replace('.Tests.ps1', '.ps1')
     $testParams = @{
+        Id      = 1
         Path    = (New-Item 'TestDrive:/f' -ItemType Directory).FullName
         Filter  = '*.txt'
         Recurse = $false
     }
 }
 Describe 'the mandatory parameters are' {
-    It '<_>' -ForEach @('Path', 'Recurse', 'Filter') {
+    It '<_>' -ForEach @('Id', 'Path', 'Recurse', 'Filter') {
         (Get-Command $testScript).Parameters[$_].Attributes.Mandatory |
         Should -BeTrue
     }
@@ -61,6 +62,9 @@ Describe 'return an object' {
             $actual = & $testScript @testNewParams
         }
         Context 'with property' {
+            It 'Id' {
+                $actual.Id | Should -Be $testNewParams.Id
+            }
             It 'Files' {
                 $actual.Files | Should -BeNullOrEmpty
             }
@@ -85,6 +89,9 @@ Describe 'return an object' {
                 $actual = & $testScript @testNewParams
             }
             Context 'with property' {
+                It 'Id' {
+                    $actual.Id | Should -Be $testNewParams.Id
+                }
                 It 'Files' {
                     $actual.Files | Should -BeNullOrEmpty
                 }
@@ -106,6 +113,9 @@ Describe 'return an object' {
                 $actual = & $testScript @testNewParams
             }
             Context 'with property' {
+                It 'Id' {
+                    $actual.Id | Should -Be $testNewParams.Id
+                }
                 It 'Files' {
                     $actual.Files | Should -BeNullOrEmpty
                 }
