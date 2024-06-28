@@ -333,7 +333,7 @@ End {
             $task = $Tasks[$i]
 
             #region Verbose
-            $M = "Task ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}' MailTo '{4}' MailWhen '{5}'" -f
+            $M = "Task ComputerName '{0}' Path '{1}' Filter '{2}' Recurse '{3}' Mail.To '{4}' Mail.When '{5}'" -f
             $($task.ComputerName -join ', '),
             $($task.FolderPath -join ', '),
             $($task.Filter -join ', '),
@@ -344,13 +344,16 @@ End {
             #endregion
 
             $mailParams = @{
-                To        = $task.SendMail.To
-                Bcc       = $ScriptAdmin
-                Priority  = 'Normal'
-                LogFolder = $logParams.LogFolder
-                Header    = if ($task.SendMail.Header) { $task.SendMail.Header }
+                To             = $task.SendMail.To
+                Bcc            = $ScriptAdmin
+                Priority       = 'Normal'
+                LogFolder      = $logParams.LogFolder
+                Header         = if ($task.SendMail.Header) {
+                    $task.SendMail.Header
+                }
                 else { $ScriptName }
-                Save      = "$logFile - $i - Mail.html"
+                EventLogSource = $ScriptName
+                Save           = "$logFile - $i - Mail.html"
             }
 
             $excelParams = @{
@@ -452,12 +455,19 @@ End {
                 #endregion
             }
 
+            #region Counter
+            $counter = @{
+                FilesFound      = $excelSheet.Files.Count
+                ExecutionErrors = $excelSheet.Errors.Count
+            }
+            #endregion
+
             #region Create Excel sheets
             if ($excelSheet.Files) {
                 $excelParams.WorksheetName = $excelParams.TableName = 'Files'
 
                 $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
-                $excelSheet.Files.Count,
+                $counter.FilesFound,
                 $excelParams.WorksheetName,
                 $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
@@ -488,7 +498,7 @@ End {
                 $excelParams.WorksheetName = $excelParams.TableName = 'Errors'
 
                 $M = "Export {0} rows to sheet '{1}' in Excel file '{2}'" -f
-                $excelSheet.Errors.Count,
+                $counter.ExecutionErrors,
                 $excelParams.WorksheetName,
                 $excelParams.Path
                 Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
@@ -499,32 +509,69 @@ End {
             }
             #endregion
 
+            #region Mail subject and priority
+            $mailParams.Subject = '{0} file{1} found' -f
+            $counter.FilesFound,
+            $(if ($counter.FilesFound -ne 1) { 's' })
+
+            if ($counter.ExecutionErrors) {
+                $mailParams.Priority = 'High'
+
+                $mailParams.Subject += ', {0} error{1}' -f
+                $counter.ExecutionErrors,
+                $(if ($counter.ExecutionErrors -ne 1) { 's' })
+
+                $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
+                $counter.ExecutionErrors,
+                $(if ($counter.ExecutionErrors -ne 1) { 's' })
+            }
+            #endregion
+
+            #region Check to send mail to user
+            $sendMailToUser = $false
+
+            if (
+                (
+                    $task.SendMail.When -eq 'Always'
+                ) -or
+                (
+                    ($task.SendMail.When -eq 'OnlyWhenFilesAreFound') -and
+                    ($counter.FilesFound)
+                )
+            ) {
+                $sendMailToUser = $true
+            }
+            #endregion
+
+            #region Send mail
+            if ($sendMailToUser) {
+                Write-Verbose 'Send e-mail to the user'
+
+                if ($counter.ExecutionErrors) {
+                    $mailParams.Bcc = $ScriptAdmin
+                }
+
+                Send-MailHC @mailParams
+            }
+            else {
+                Write-Verbose 'Send no e-mail to the user'
+
+                if ($counter.ExecutionErrors) {
+                    Write-Verbose 'Send e-mail to admin only with errors'
+
+                    $mailParams.To = $ScriptAdmin
+                    Send-MailHC @mailParams
+                }
+            }
+            #endregion
+
             #region Send mail
             if (
                 ($task.SendMail.When -eq 'Always') -or
                 ($excelSheet.Files) -or
-                ($excelSheet.Errors)
+                ($counter.ExecutionErrors)
             ) {
                 $errorMessage = $null
-
-                #region Subject and Priority
-                $mailParams.Subject = '{0} file{1} found' -f
-                $excelSheet.Files.Count,
-                $(if ($excelSheet.Files.Count -ne 1) { 's' })
-
-                if ($excelSheet.Errors) {
-                    $mailParams.Priority = 'High'
-
-                    $mailParams.Subject += ', {0} error{1}' -f
-                    $excelSheet.Errors.Count,
-                    $(if ($excelSheet.Errors.Count -ne 1) { 's' })
-
-                    $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
-                    $excelSheet.Errors.Count,
-                    $(if ($excelSheet.Errors.Count -ne 1) { 's' })
-                }
-                #endregion
-
 
                 $tableRows = foreach (
                     $computerName in
@@ -586,7 +633,7 @@ End {
                 <table>
                     $tableRows
                 </table>
-                {1}" -f $excelSheet.Files.Count, $(
+                {1}" -f $counter.FilesFound, $(
                     if ($mailParams.Attachments) {
                         '<p><i>* Check the attachment for details</i></p>'
                     }
