@@ -295,4 +295,4 @@ Describe 'execute the search script with Invoke-Command' {
 
         Should -Invoke Invoke-Command -Times 8 -Exactly
     }
-}
+} -Tag test

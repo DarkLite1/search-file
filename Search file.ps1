@@ -192,7 +192,7 @@ Begin {
             #endregion
 
             #region Add properties
-            $task | Add-Member -NotePropertyMembers {
+            $task | Add-Member -NotePropertyMembers @{
                 JobId = @()
             }
             #endregion
@@ -366,11 +366,75 @@ End {
                 Errors = @()
             }
 
+            $executedTasks = $tasksToExecute.Where(
+                { $task.JobId -contains $_.Job.Id }
+            )
+
+            #region Mail message
+            $errorMessage = $null
+            $tableRows = @()
+
             foreach (
-                $executedTask in
-                $tasksToExecute.Where({ $task.JobId -contains $_.Job.Id })
+                $filters in
+                $executedTasks | Group-Object -Property 'ComputerName', 'Path'
             ) {
-                #region Create Excel objects
+                $filterRows = foreach ($filter in $filters.Group) {
+                    if (
+                        ($task.SendMail.When -eq 'Always') -or
+                        ($filter.Job.Results)
+                    ) {
+                        "<tr>
+                            <td>{0}</td>
+                            <td>{1}</td>
+                        </tr>" -f $filter.Filter, $filter.Job.Results.Count
+                    }
+                }
+
+                if ($filterRows) {
+                    $computerName = $filters.Group[0].ComputerName
+                    $path = $filters.Group[0].Path
+
+                    $tableRows += "<tr>
+                        <th>{0}</th>
+                        <th>{1}</th>
+                    </tr>
+                    <tr>
+                        <td>Filter</td>
+                        <td>Files found</td>
+                    </tr>" -f
+                    $computerName,
+                    $(
+                        if ($path -match '^\\\\') {
+                            '<a href="{0}">{0}</a>' -f $path
+                        }
+                        else {
+                            $uncPath = $path -Replace '^.{2}', (
+                                '\\{0}\{1}$' -f
+                                $computerName, $path[0]
+                            )
+                            '<a href="{0}">{0}</a>' -f $uncPath
+                        }
+                    )
+
+                    $tableRows += $filterRows
+                }
+
+                $mailParams.Message = "
+            $errorMessage
+            <p>Found a total of <b>{0} files</b>:</p>
+            <table>
+                $tableRows
+            </table>
+            {1}" -f $counter.FilesFound, $(
+                    if ($mailParams.Attachments) {
+                        '<p><i>* Check the attachment for details</i></p>'
+                    }
+                )
+            }
+            #endregion
+
+            #region Create Excel objects
+            foreach ($executedTask in $executedTasks) {
                 if ($executedTask.Job.Results.Files) {
                     $excelSheet.Files += $executedTask.Job.Results.Files |
                     Select-Object -Property @{
@@ -452,8 +516,8 @@ End {
                         Expression = { $_ }
                     }
                 }
-                #endregion
             }
+            #endregion
 
             #region Counter
             $counter = @{
@@ -562,90 +626,6 @@ End {
                     $mailParams.To = $ScriptAdmin
                     Send-MailHC @mailParams
                 }
-            }
-            #endregion
-
-            #region Send mail
-            if (
-                ($task.SendMail.When -eq 'Always') -or
-                ($excelSheet.Files) -or
-                ($counter.ExecutionErrors)
-            ) {
-                $errorMessage = $null
-
-                $tableRows = foreach (
-                    $computerName in
-                    $task.ComputerName
-                ) {
-                    foreach ($path in $task.FolderPath) {
-                        $computerPathHtml = "<tr>
-                            <th>{0}</th>
-                            <th>{1}</th>
-                       </tr>
-                       <tr>
-                            <td>Filter</td>
-                            <td>Files found</td>
-                        </tr>" -f $computerName, $(
-                            if ($path -match '^\\\\') {
-                                '<a href="{0}">{0}</a>' -f $path
-                            }
-                            else {
-                                $uncPath = $path -Replace '^.{2}', (
-                                    '\\{0}\{1}$' -f $computerName, $path[0]
-                                )
-                                '<a href="{0}">{0}</a>' -f $uncPath
-                            }
-                        )
-
-                        $matchesFoundHtml = foreach (
-                            $filter in
-                            $task.Filter
-                        ) {
-                            $matchesCount = $excelSheet.Files | Where-Object {
-                                ($_.ComputerName -eq $computerName) -and
-                                ($_.Path -eq $path) -and
-                                ($_.Filter -eq $filter)
-                            } | Measure-Object |
-                            Select-Object -ExpandProperty Count
-
-                            if (
-                                ($task.SendMail.When -eq 'Always') -or
-                                ($matchesCount)
-                            ) {
-                                "<tr>
-                                    <td>{0}</td>
-                                    <td>{1}</td>
-                                </tr>" -f $filter, $matchesCount
-                            }
-                        }
-
-                        if ($matchesFoundHtml) {
-                            $computerPathHtml
-                            $matchesFoundHtml
-                        }
-
-                    }
-                }
-
-                $mailParams.Message = "
-                $errorMessage
-                <p>Found a total of <b>{0} files</b>:</p>
-                <table>
-                    $tableRows
-                </table>
-                {1}" -f $counter.FilesFound, $(
-                    if ($mailParams.Attachments) {
-                        '<p><i>* Check the attachment for details</i></p>'
-                    }
-                )
-
-                $M = "Send mail`r`n- Header:`t{0}`r`n- To:`t`t{1}`r`n- Subject:`t{2}" -f
-                $mailParams.Header, $($mailParams.To -join ','),
-                $mailParams.Subject
-                Write-Verbose $M; Write-EventLog @EventOutParams -Message $M
-
-                Get-ScriptRuntimeHC -Stop
-                Send-MailHC @mailParams
             }
             #endregion
         }
