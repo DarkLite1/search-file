@@ -429,7 +429,7 @@ Describe 'create an Excel file' {
     It "when files are found" {
         $testExcelLogFile | Should -Not -BeNullOrEmpty
     }
-    Context 'with worksheet Files' {
+    Context "with worksheet 'Files'" {
         BeforeAll {
             $testExportedExcelRows = $testData.foreach(
                 {
@@ -449,7 +449,7 @@ Describe 'create an Excel file' {
             $actual = Import-Excel -Path $testExcelLogFile -WorksheetName 'Files'
         }
         It 'with the correct total rows' {
-            $actual | Should -HaveCount $testData.Count
+            $actual | Should -HaveCount $testExportedExcelRows.Count
         }
         It 'with the correct data in the rows' {
             foreach ($testRow in $testExportedExcelRows) {
@@ -468,4 +468,39 @@ Describe 'create an Excel file' {
             }
         }
     }
-} -Tag test
+    Context "with worksheet 'Errors'" {
+        BeforeAll {
+            Mock Invoke-Command {
+                throw 'Oops'
+            }
+
+            .$testScript @testParams
+
+            $testExportedExcelRows = @(
+                @{
+                    ComputerName = $testInputFile.Tasks[0].ComputerName
+                    Path         = $testInputFile.Tasks[0].FolderPath
+                    Filter       = $testInputFile.Tasks[0].Filter[0]
+                    Recurse      = $testInputFile.Tasks[0].Recurse
+                    Error        = 'Oops'
+                }
+            )
+
+            $actual = Import-Excel -Path $testExcelLogFile -WorksheetName 'Errors'
+        }
+        It 'with the correct total rows' {
+            $actual | Should -HaveCount $testExportedExcelRows.Count
+        }
+        It 'with the correct data in the rows' {
+            foreach ($testRow in $testExportedExcelRows) {
+                $actualRow = $actual | Where-Object {
+                    $_.ComputerName -eq $testRow.ComputerName
+                }
+                $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                $actualRow.Filter | Should -Be $testRow.Filter
+                $actualRow.Path | Should -Be $testRow.Path
+                $actualRow.Error | Should -Be $testRow.Error
+            }
+        }
+    }
+}  -Tag test
