@@ -297,52 +297,109 @@ Describe 'execute the search script with Invoke-Command' {
     }
 }
 Describe 'SendMail.When' {
-    BeforeAll {
-        $testNewInputFile = Copy-ObjectHC $testInputFile
-        $testNewInputFile.Tasks[0].SendMail.When = 'OnlyWhenFilesAreFound'
+    Context 'Always' {
+        BeforeAll {
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.Tasks[0].SendMail.When = 'Always'
 
-        $testNewInputFile | ConvertTo-Json -Depth 7 |
-        Out-File @testOutParams
-    }
-    Context 'send no e-mail to the user' {
-        It "'OnlyWhenFilesAreFound' and no files are found" {
-            Mock Invoke-Command {
-                [PSCustomObject]@{
-                    Id        = 1
-                    Files     = @()
-                    StartTime = Get-Date
-                    EndTime   = (Get-Date).AddMinutes(5)
-                    Error     = $null
-                }
-            }
-
-            .$testScript @testParams
-
-            Should -Not -Invoke Send-MailHC
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
         }
-    }
-    Context 'send an e-mail to the user' {
-        It "'OnlyWhenFilesAreFound' and files are found" {
-            Mock Invoke-Command {
-                [PSCustomObject]@{
-                    Id        = 1
-                    Files     = @('a', 'b')
-                    StartTime = Get-Date
-                    EndTime   = (Get-Date).AddMinutes(5)
-                    Error     = $null
+        Context 'send an e-mail to the user' {
+            It "when no files are found" {
+                Mock Invoke-Command {
+                    [PSCustomObject]@{
+                        Id        = 1
+                        Files     = @()
+                        StartTime = Get-Date
+                        EndTime   = (Get-Date).AddMinutes(5)
+                        Error     = $null
+                    }
                 }
+
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -ParameterFilter {
+                    ($to -eq $testNewInputFile.Tasks[0].SendMail.To) -and
+                    ($Bcc -eq $testParams.ScriptAdmin) -and
+                    ($Priority -eq 'Normal') -and
+                    ($Subject -eq '0 files found') -and
+                    (-not $Attachments) -and
+                    ($Message -like "*Found a total of <b>0 files</b>*$($testNewInputFile.Tasks[0].ComputerName)*$($testNewInputFile.Tasks[0].FolderPath.SubString(2, $testNewInputFile.Tasks[0].FolderPath.length -2))*Filter*Files found*$($testNewInputFile.Tasks[0].Filter)*0*")
+                    }
             }
+            It "when files are found" {
+                Mock Invoke-Command {
+                    [PSCustomObject]@{
+                        Id        = 1
+                        Files     = @('a', 'b')
+                        StartTime = Get-Date
+                        EndTime   = (Get-Date).AddMinutes(5)
+                        Error     = $null
+                    }
+                }
 
-            .$testScript @testParams
+                .$testScript @testParams
 
-            Should -Invoke Send-MailHC -ParameterFilter {
+                Should -Invoke Send-MailHC -ParameterFilter {
                 ($to -eq $testNewInputFile.Tasks[0].SendMail.To) -and
                 ($Bcc -eq $testParams.ScriptAdmin) -and
                 ($Priority -eq 'Normal') -and
                 ($Subject -eq '2 files found') -and
                 ($Attachments -like '* - 0 - Log.xlsx') -and
                 ($Message -like "*Found a total of <b>2 files</b>*$($testNewInputFile.Tasks[0].ComputerName)*$($testNewInputFile.Tasks[0].FolderPath.SubString(2, $testNewInputFile.Tasks[0].FolderPath.length -2))*Filter*Files found*$($testNewInputFile.Tasks[0].Filter)*2*Check the attachment for details*")
+                }
             }
         }
-    }  -Tag test
-}
+    }
+    Context 'OnlyWhenFilesAreFound' {
+        BeforeAll {
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.Tasks[0].SendMail.When = 'OnlyWhenFilesAreFound'
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+        }
+        Context 'send no e-mail to the user' {
+            It "when no files are found" {
+                Mock Invoke-Command {
+                    [PSCustomObject]@{
+                        Id        = 1
+                        Files     = @()
+                        StartTime = Get-Date
+                        EndTime   = (Get-Date).AddMinutes(5)
+                        Error     = $null
+                    }
+                }
+
+                .$testScript @testParams
+
+                Should -Not -Invoke Send-MailHC
+            }
+        }
+        Context 'send an e-mail to the user' {
+            It "when files are found" {
+                Mock Invoke-Command {
+                    [PSCustomObject]@{
+                        Id        = 1
+                        Files     = @('a', 'b')
+                        StartTime = Get-Date
+                        EndTime   = (Get-Date).AddMinutes(5)
+                        Error     = $null
+                    }
+                }
+
+                .$testScript @testParams
+
+                Should -Invoke Send-MailHC -ParameterFilter {
+                ($to -eq $testNewInputFile.Tasks[0].SendMail.To) -and
+                ($Bcc -eq $testParams.ScriptAdmin) -and
+                ($Priority -eq 'Normal') -and
+                ($Subject -eq '2 files found') -and
+                ($Attachments -like '* - 0 - Log.xlsx') -and
+                ($Message -like "*Found a total of <b>2 files</b>*$($testNewInputFile.Tasks[0].ComputerName)*$($testNewInputFile.Tasks[0].FolderPath.SubString(2, $testNewInputFile.Tasks[0].FolderPath.length -2))*Filter*Files found*$($testNewInputFile.Tasks[0].Filter)*2*Check the attachment for details*")
+                }
+            }
+        }
+    }
+}  -Tag test
