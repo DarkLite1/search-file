@@ -326,7 +326,7 @@ Describe 'SendMail.When' {
                     ($Subject -eq '0 files found') -and
                     (-not $Attachments) -and
                     ($Message -like "*Found a total of <b>0 files</b>*$($testNewInputFile.Tasks[0].ComputerName)*$($testNewInputFile.Tasks[0].FolderPath.SubString(2, $testNewInputFile.Tasks[0].FolderPath.length -2))*Filter*Files found*$($testNewInputFile.Tasks[0].Filter)*0*")
-                    }
+                }
             }
             It "when files are found" {
                 Mock Invoke-Command {
@@ -402,4 +402,70 @@ Describe 'SendMail.When' {
             }
         }
     }
-}  -Tag test
+}
+Describe 'create an Excel file' {
+    BeforeAll {
+        $testData = @('a.txt', 'b.txt').ForEach(
+            { New-Item -Path "$($testInputFile.Tasks[0].FolderPath)\$_" -ItemType File }
+        )
+
+        Mock Invoke-Command {
+            [PSCustomObject]@{
+                Id        = 1
+                Files     = $testData
+                StartTime = Get-Date
+                EndTime   = (Get-Date).AddMinutes(5)
+                Error     = $null
+            }
+        }
+
+        $testInputFile | ConvertTo-Json -Depth 7 |
+        Out-File @testOutParams
+
+        .$testScript @testParams
+
+        $testExcelLogFile = Get-ChildItem $testParams.LogFolder -File -Recurse -Filter '*.xlsx'
+    }
+    It "when files are found" {
+        $testExcelLogFile | Should -Not -BeNullOrEmpty
+    }
+    Context 'with worksheet Files' {
+        BeforeAll {
+            $testExportedExcelRows = $testData.foreach(
+                {
+                    @{
+                        ComputerName  = $testInputFile.Tasks[0].ComputerName
+                        Folder        = $testInputFile.Tasks[0].FolderPath
+                        FileName      = $_.Name
+                        Filter        = $testInputFile.Tasks[0].Filter[0]
+                        CreationTime  = $_.CreationTime
+                        LastWriteTime = $_.LastWriteTime
+                        Size          = 0
+                        Size_         = $_.Length
+                    }
+                }
+            )
+
+            $actual = Import-Excel -Path $testExcelLogFile -WorksheetName 'Files'
+        }
+        It 'with the correct total rows' {
+            $actual | Should -HaveCount $testData.Count
+        }
+        It 'with the correct data in the rows' {
+            foreach ($testRow in $testExportedExcelRows) {
+                $actualRow = $actual | Where-Object {
+                    $_.FileName -eq $testRow.FileName
+                }
+                $actualRow.ComputerName | Should -Be $testRow.ComputerName
+                $actualRow.Folder | Should -Be $testRow.Folder
+                $actualRow.CreationTime.ToString('yyyyMMdd') |
+                Should -Be $testRow.CreationTime.ToString('yyyyMMdd')
+                $actualRow.LastWriteTime.ToString('yyyyMMdd') |
+                Should -Be $testRow.LastWriteTime.ToString('yyyyMMdd')
+                $actualRow.Filter | Should -Be $testRow.Filter
+                $actualRow.Size | Should -Be $testRow.Size
+                $actualRow.Size_ | Should -Be $testRow.Size_
+            }
+        }
+    }
+} -Tag test
