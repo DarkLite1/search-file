@@ -295,4 +295,103 @@ Describe 'execute the search script with Invoke-Command' {
 
         Should -Invoke Invoke-Command -Times 8 -Exactly
     }
-} -Tag test
+}
+Describe 'SendMail.When' {
+    Context 'send no e-mail to the user' {
+        It "'OnlyWhenFilesAreFound' and no files are found" {
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.Tasks[0].SendMail.When = 'OnlyWhenFilesAreFound'
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+
+            .$testScript @testParams
+
+            Mock Invoke-Command {
+                [PSCustomObject]@{
+                    Id        = 1
+                    Files     = @()
+                    StartTime = Get-Date
+                    EndTime   = (Get-Date).AddMinutes(5)
+                    Error     = $null
+                }
+            }
+
+            .$testScript @testParams
+
+            Should -Not -Invoke Send-MailHC
+        }
+    } -Tag test
+    Context 'send an e-mail to the user' {
+        It "'OnlyOnError' and there are errors" {
+            Mock Invoke-Command {
+                [PSCustomObject]@{
+                    Path     = 'a'
+                    DateTime = Get-Date
+                    Action   = @()
+                    Error    = 'oops'
+                }
+            } -ParameterFilter {
+                ($FilePath -eq $testParams.Path.DownloadScript) -or
+                ($FilePath -eq $testParams.Path.UploadScript)
+            }
+
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.Tasks[0].SendMail.When = 'OnlyOnError'
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+
+            .$testScript @testParams
+
+            Should -Invoke Send-MailHC @testParamFilter
+        }
+        It "'OnlyOnErrorOrAction' and there are actions but no errors" {
+            Mock Invoke-Command {
+                [PSCustomObject]@{
+                    Path     = 'a'
+                    DateTime = Get-Date
+                    Uploaded = $true
+                    Action   = @('upload')
+                    Error    = $null
+                }
+            } -ParameterFilter {
+                ($FilePath -eq $testParams.Path.DownloadScript) -or
+                ($FilePath -eq $testParams.Path.UploadScript)
+            }
+
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.Tasks[0].SendMail.When = 'OnlyOnErrorOrAction'
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+
+            .$testScript @testParams
+
+            Should -Invoke Send-MailHC @testParamFilter
+        }
+        It "'OnlyOnErrorOrAction' and there are errors but no actions" {
+            Mock Invoke-Command {
+                [PSCustomObject]@{
+                    Path     = 'a'
+                    DateTime = Get-Date
+                    Action   = @()
+                    Error    = 'oops'
+                }
+            } -ParameterFilter {
+                ($FilePath -eq $testParams.Path.DownloadScript) -or
+                ($FilePath -eq $testParams.Path.UploadScript)
+            }
+
+            $testNewInputFile = Copy-ObjectHC $testInputFile
+            $testNewInputFile.Tasks[0].SendMail.When = 'OnlyOnErrorOrAction'
+
+            $testNewInputFile | ConvertTo-Json -Depth 7 |
+            Out-File @testOutParams
+
+            .$testScript @testParams
+
+            Should -Invoke Send-MailHC @testParamFilter
+        }
+    }
+}

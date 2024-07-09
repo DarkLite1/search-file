@@ -370,69 +370,6 @@ End {
                 { $task.JobId -contains $_.Job.Id }
             )
 
-            #region Mail message
-            $errorMessage = $null
-            $tableRows = @()
-
-            foreach (
-                $filters in
-                $executedTasks | Group-Object -Property 'ComputerName', 'Path'
-            ) {
-                $filterRows = foreach ($filter in $filters.Group) {
-                    if (
-                        ($task.SendMail.When -eq 'Always') -or
-                        ($filter.Job.Results)
-                    ) {
-                        "<tr>
-                            <td>{0}</td>
-                            <td>{1}</td>
-                        </tr>" -f $filter.Filter, $filter.Job.Results.Count
-                    }
-                }
-
-                if ($filterRows) {
-                    $computerName = $filters.Group[0].ComputerName
-                    $path = $filters.Group[0].Path
-
-                    $tableRows += "<tr>
-                        <th>{0}</th>
-                        <th>{1}</th>
-                    </tr>
-                    <tr>
-                        <td>Filter</td>
-                        <td>Files found</td>
-                    </tr>" -f
-                    $computerName,
-                    $(
-                        if ($path -match '^\\\\') {
-                            '<a href="{0}">{0}</a>' -f $path
-                        }
-                        else {
-                            $uncPath = $path -Replace '^.{2}', (
-                                '\\{0}\{1}$' -f
-                                $computerName, $path[0]
-                            )
-                            '<a href="{0}">{0}</a>' -f $uncPath
-                        }
-                    )
-
-                    $tableRows += $filterRows
-                }
-
-                $mailParams.Message = "
-            $errorMessage
-            <p>Found a total of <b>{0} files</b>:</p>
-            <table>
-                $tableRows
-            </table>
-            {1}" -f $counter.FilesFound, $(
-                    if ($mailParams.Attachments) {
-                        '<p><i>* Check the attachment for details</i></p>'
-                    }
-                )
-            }
-            #endregion
-
             #region Create Excel objects
             foreach ($executedTask in $executedTasks) {
                 if ($executedTask.Job.Results.Files) {
@@ -526,6 +463,85 @@ End {
             }
             #endregion
 
+            #region Mail subject and priority
+            $mailParams.Subject = '{0} file{1} found' -f
+            $counter.FilesFound,
+            $(if ($counter.FilesFound -ne 1) { 's' })
+
+            $errorMessage = if ($counter.ExecutionErrors) {
+                $mailParams.Priority = 'High'
+                $mailParams.Subject += ', {0} error{1}' -f
+                $counter.ExecutionErrors,
+                $(if ($counter.ExecutionErrors -ne 1) { 's' })
+
+                "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
+                $counter.ExecutionErrors,
+                $(if ($counter.ExecutionErrors -ne 1) { 's' })
+            }
+            #endregion
+
+            #region Mail message
+            $tableRows = @()
+
+            foreach (
+                $filters in
+                $executedTasks | Group-Object -Property 'ComputerName', 'Path'
+            ) {
+                $filterRows = foreach ($filter in $filters.Group) {
+                    if (
+                        ($task.SendMail.When -eq 'Always') -or
+                        ($filter.Job.Results)
+                    ) {
+                        "<tr>
+                            <td>{0}</td>
+                            <td>{1}</td>
+                        </tr>" -f $filter.Filter, $filter.Job.Results.Count
+                    }
+                }
+
+                if ($filterRows) {
+                    $computerName = $filters.Group[0].ComputerName
+                    $path = $filters.Group[0].Path
+
+                    $tableRows += '<table>'
+                    $tableRows += "<tr>
+                        <th>{0}</th>
+                        <th>{1}</th>
+                    </tr>
+                    <tr>
+                        <td>Filter</td>
+                        <td>Files found</td>
+                    </tr>" -f
+                    $computerName,
+                    $(
+                        if ($path -match '^\\\\') {
+                            '<a href="{0}">{0}</a>' -f $path
+                        }
+                        else {
+                            $uncPath = $path -Replace '^.{2}', (
+                                '\\{0}\{1}$' -f
+                                $computerName, $path[0]
+                            )
+                            '<a href="{0}">{0}</a>' -f $uncPath
+                        }
+                    )
+
+                    $tableRows += $filterRows
+                    $tableRows += '/<table>'
+                }
+            }
+
+            $mailParams.Message = "
+                $errorMessage
+                <p>Found a total of <b>{0} files</b>:</p>
+                $tableRows
+                {1}" -f $counter.FilesFound, $(
+                if ($mailParams.Attachments) {
+                    '<p><i>* Check the attachment for details</i></p>'
+                }
+            )
+            #endregion
+
             #region Create Excel sheets
             if ($excelSheet.Files) {
                 $excelParams.WorksheetName = $excelParams.TableName = 'Files'
@@ -570,24 +586,6 @@ End {
                 $excelSheet.Errors | Export-Excel @excelParams
 
                 $mailParams.Attachments = $excelParams.Path
-            }
-            #endregion
-
-            #region Mail subject and priority
-            $mailParams.Subject = '{0} file{1} found' -f
-            $counter.FilesFound,
-            $(if ($counter.FilesFound -ne 1) { 's' })
-
-            if ($counter.ExecutionErrors) {
-                $mailParams.Priority = 'High'
-
-                $mailParams.Subject += ', {0} error{1}' -f
-                $counter.ExecutionErrors,
-                $(if ($counter.ExecutionErrors -ne 1) { 's' })
-
-                $errorMessage = "<p>Detected <b>{0} error{1}</b> during execution.</p>" -f
-                $counter.ExecutionErrors,
-                $(if ($counter.ExecutionErrors -ne 1) { 's' })
             }
             #endregion
 
