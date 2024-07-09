@@ -480,7 +480,7 @@ End {
             }
             #endregion
 
-            #region Mail message
+            #region Create mail filter table
             $tableRows = @()
 
             foreach (
@@ -495,7 +495,9 @@ End {
                         "<tr>
                             <td>{0}</td>
                             <td>{1}</td>
-                        </tr>" -f $filter.Filter, $filter.Job.Results.Count
+                        </tr>" -f
+                        $filter.Filter,
+                        $filter.Job.Results.Files.Count
                     }
                 }
 
@@ -530,16 +532,6 @@ End {
                     $tableRows += '/<table>'
                 }
             }
-
-            $mailParams.Message = "
-                $errorMessage
-                <p>Found a total of <b>{0} files</b>:</p>
-                $tableRows
-                {1}" -f $counter.FilesFound, $(
-                if ($mailParams.Attachments) {
-                    '<p><i>* Check the attachment for details</i></p>'
-                }
-            )
             #endregion
 
             #region Create Excel sheets
@@ -587,6 +579,18 @@ End {
 
                 $mailParams.Attachments = $excelParams.Path
             }
+            #endregion
+
+            #region Mail message
+            $mailParams.Message = "
+            $errorMessage
+            <p>Found a total of <b>{0} files</b>:</p>
+            $tableRows
+            {1}" -f $counter.FilesFound, $(
+                if ($mailParams.Attachments) {
+                    '<p><i>* Check the attachment for details</i></p>'
+                }
+            )
             #endregion
 
             #region Check to send mail to user
