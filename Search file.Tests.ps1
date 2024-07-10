@@ -285,9 +285,10 @@ Describe 'execute the search script with Invoke-Command' {
                         ($FilePath -eq $testParams.SearchScript) -and
                         ($EnableNetworkAccess) -and
                         ($ErrorAction -eq 'Stop') -and
-                        ($ArgumentList[0] -eq $testPath) -and
-                        ($ArgumentList[1] -eq $testFilter) -and
-                        ($ArgumentList[2] -eq $testNewInputFile.Tasks[0].Recurse)
+                        ($ArgumentList[0]) -and
+                        ($ArgumentList[1] -eq $testPath) -and
+                        ($ArgumentList[2] -eq $testFilter) -and
+                        ($ArgumentList[3] -eq $testNewInputFile.Tasks[0].Recurse)
                     }
                 }
             }

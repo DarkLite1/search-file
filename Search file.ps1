@@ -251,16 +251,17 @@ Process {
                     ComputerName        = $task.ComputerName
                     FilePath            = $searchScriptPath
                     ConfigurationName   = $PSSessionConfiguration
-                    ArgumentList        = $task.Path, $task.Filter, $task.Recurse
+                    ArgumentList        = $task.Job.Id, $task.Path, $task.Filter, $task.Recurse
                     EnableNetworkAccess = $true
                     ErrorAction         = 'Stop'
                 }
 
-                $M = "Start job on '{0}' Path '{1}' Filter '{2}' Recurse '{3}'" -f
-                $invokeParams.ComputerName,
+                $M = "Start job with Id '{0}' on '{1}' Path '{2}' Filter '{3}' Recurse '{4}'" -f
                 $invokeParams.ArgumentList[0],
-                $($invokeParams.ArgumentList[1] -join ', '),
-                $invokeParams.ArgumentList[2]
+                $invokeParams.ComputerName,
+                $invokeParams.ArgumentList[1],
+                $($invokeParams.ArgumentList[2] -join ', '),
+                $invokeParams.ArgumentList[3]
                 Write-Verbose $M; Write-EventLog @EventVerboseParams -Message $M
                 #endregion
 
@@ -269,11 +270,12 @@ Process {
                 #endregion
 
                 #region Verbose
-                $M = "Results from '{0}' Path '{1}' Filters '{2}' Recurse '{3}': {4}" -f
-                $invokeParams.ComputerName,
+                $M = "Results from Id '{0}' on '{1}' Path '{2}' Filters '{3}' Recurse '{4}': {5}" -f
                 $invokeParams.ArgumentList[0],
-                $($invokeParams.ArgumentList[1] -join ', '),
-                $invokeParams.ArgumentList[2],
+                $invokeParams.ComputerName,
+                $invokeParams.ArgumentList[1],
+                $($invokeParams.ArgumentList[2] -join ', '),
+                $invokeParams.ArgumentList[3],
                 $task.Job.Results[-1].Count
 
                 if ($errorCount = $task.Job.Results.Where({ $_.Error }).Count) {
@@ -292,11 +294,12 @@ Process {
                 #endregion
             }
             catch {
-                $M = "Error on '{0}' Path '{1}' Filters '{2}' Recurse '{3}': $_" -f
-                $invokeParams.ComputerName,
+                $M = "Error for Id '{0}' on '{1}' Path '{2}' Filters '{3}' Recurse '{4}': $_" -f
                 $invokeParams.ArgumentList[0],
-                $($invokeParams.ArgumentList[1] -join ', '),
-                $invokeParams.ArgumentList[2]
+                $invokeParams.ComputerName,
+                $invokeParams.ArgumentList[1],
+                $($invokeParams.ArgumentList[2] -join ', '),
+                $invokeParams.ArgumentList[3]
                 Write-Warning $M; Write-EventLog @EventErrorParams -Message $M
 
                 $task.Job.Error = $_
