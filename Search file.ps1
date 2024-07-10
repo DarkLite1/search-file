@@ -383,7 +383,7 @@ End {
                     },
                     @{
                         Name       = 'Folder'
-                        Expression = { $_.Directory.FullName }
+                        Expression = { $_.Directory }
                     },
                     @{
                         Name       = 'FileName'
