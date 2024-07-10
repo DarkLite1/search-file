@@ -532,7 +532,7 @@ End {
                     )
 
                     $tableRows += $filterRows
-                    $tableRows += '/<table>'
+                    $tableRows += '</table>'
                 }
             }
             #endregion
