@@ -113,7 +113,7 @@ Describe 'send an e-mail to the admin when' {
                 }
             }
             It 'Tasks.<_> not found' -ForEach @(
-                'FolderPath', 'Filter', 'ComputerName', 'SendMail'
+                'FolderPath', 'Filter', 'SendMail'
             ) {
                 $testNewInputFile = Copy-ObjectHC $testInputFile
                 $testNewInputFile.Tasks[0].$_ = $null

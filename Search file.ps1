@@ -123,8 +123,18 @@ Begin {
             $Tasks = $file.Tasks
 
             foreach ($task in $Tasks) {
+                #region Set ComputerName if there is none
+                if (
+                (-not $task.ComputerName) -or
+                ($task.ComputerName -eq 'localhost') -or
+                ($task.ComputerName -eq "$env:COMPUTERNAME.$env:USERDNSDOMAIN")
+                ) {
+                    $task.ComputerName = $env:COMPUTERNAME
+                }
+                #endregion
+
                 @(
-                    'FolderPath', 'Filter', 'ComputerName', 'SendMail'
+                    'FolderPath', 'Filter', 'SendMail'
                 ).where(
                     { -not $task.$_ }
                 ).foreach(
@@ -181,16 +191,6 @@ Begin {
         $jobId = 0
 
         foreach ($task in $Tasks) {
-            #region Set ComputerName if there is none
-            if (
-                (-not $task.ComputerName) -or
-                ($task.ComputerName -eq 'localhost') -or
-                ($task.ComputerName -eq "$env:COMPUTERNAME.$env:USERDNSDOMAIN")
-            ) {
-                $task.ComputerName = $env:COMPUTERNAME
-            }
-            #endregion
-
             #region Add properties
             $task | Add-Member -NotePropertyMembers @{
                 JobId = @()
