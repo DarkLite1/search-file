@@ -508,16 +508,19 @@ End {
                     $computerName = $filters.Group[0].ComputerName
                     $path = $filters.Group[0].Path
 
-                    $tableRows += '<table>'
-                    $tableRows += "<tr>
-                        <th>{0}</th>
-                        <th>{1}</th>
-                    </tr>
-                    <tr>
-                        <td>Filter</td>
-                        <td>Files found</td>
-                    </tr>" -f
-                    $computerName,
+                    $tableRows += "
+                    <table>
+                        <tr>
+                            <th>$computerName</th>
+                            <th>{0}</th>
+                        </tr>
+                        <tr>
+                            <td>Filter</td>
+                            <td>Files found</td>
+                        </tr>
+                        $filterRows
+                    </table>
+                    " -f
                     $(
                         if ($path -match '^\\\\') {
                             '<a href="{0}">{0}</a>' -f $path
@@ -530,9 +533,6 @@ End {
                             '<a href="{0}">{0}</a>' -f $uncPath
                         }
                     )
-
-                    $tableRows += $filterRows
-                    $tableRows += '</table>'
                 }
             }
             #endregion
