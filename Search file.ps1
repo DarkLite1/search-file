@@ -493,7 +493,7 @@ End {
                 $filterRows = foreach ($filter in $filters.Group) {
                     if (
                         ($task.SendMail.When -eq 'Always') -or
-                        ($filter.Job.Results)
+                        ($filter.Job.Results.Files)
                     ) {
                         "<tr>
                             <td>{0}</td>
