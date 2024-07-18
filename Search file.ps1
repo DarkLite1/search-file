@@ -332,6 +332,8 @@ Process {
 }
 End {
     try {
+        Get-ScriptRuntimeHC -Stop
+
         for ($i = 0; $i -lt $Tasks.Count; $i++) {
             $task = $Tasks[$i]
 
